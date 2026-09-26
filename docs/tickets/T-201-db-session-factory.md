@@ -25,7 +25,7 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] Creates a missing directory.
-- [ ] Foreign keys are enforced (a raw SQL delete of a message cascades).
-- [ ] `PRAGMA journal_mode` returns `wal`.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] Creates a missing directory.
+- [x] Foreign keys are enforced (a raw SQL delete of a message cascades).
+- [x] `PRAGMA journal_mode` returns `wal`.
+- [x] `uv run pytest` passes; committed and pushed to `master`
