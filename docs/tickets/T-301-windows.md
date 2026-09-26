@@ -25,8 +25,8 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] `week` anchored on a Sunday covers Mon–Sun, and anchored on a Monday covers that single day.
-- [ ] Month and year starts are correct.
-- [ ] `rolling_days: 7` covers exactly 7 days.
-- [ ] `last_n: 2` trims each player independently.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] `week` anchored on a Sunday covers Mon–Sun, and anchored on a Monday covers that single day.
+- [x] Month and year starts are correct.
+- [x] `rolling_days: 7` covers exactly 7 days.
+- [x] `last_n: 2` trims each player independently.
+- [x] `uv run pytest` passes; committed and pushed to `master`

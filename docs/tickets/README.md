@@ -321,7 +321,7 @@ The single source of truth for who's doing what. Statuses: `Todo` → `In progre
 | [T-204](T-204-backfill.md) | History backfill | B | S | T-202 | oknott14 | Done |
 | [T-205](T-205-run-query.md) | run_query: load rows & build BoardResult | B | S | T-202 | oknott14 | Done |
 | [T-206](T-206-on-command.md) | on_command dispatch & error fallback | B | S | T-205 | oknott14 | Done |
-| [T-301](T-301-windows.md) | Built-in windows | C1 | S | T-006 | | Todo |
+| [T-301](T-301-windows.md) | Built-in windows | C1 | S | T-006 | oknott14 | Done |
 | [T-302](T-302-core-aggregators.md) | Core aggregators | C1 | S | T-006 | | Todo |
 | [T-303](T-303-stat-aggregators.md) | Statistical aggregators: stddev, streak, top_k_avg | C1 | S | T-302 | | Todo |
 | [T-311](T-311-dedupe-and-rank.md) | dedupe_daily & competition ranking | C2 | S | T-006 | | Todo |
