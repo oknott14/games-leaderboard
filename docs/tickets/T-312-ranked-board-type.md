@@ -25,7 +25,7 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] `min_entries` is applied.
-- [ ] Players whose aggregate is `None` are dropped.
-- [ ] The direction is respected.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] `min_entries` is applied.
+- [x] Players whose aggregate is `None` are dropped.
+- [x] The direction is respected.
+- [x] `uv run pytest` passes; committed and pushed to `master`
