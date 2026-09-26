@@ -12,11 +12,11 @@ from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from leaderboard.models import GameResult, GameRound, Message
-from leaderboard.parser import parse_message
+from leaderboard.parser import ParsedResult, parse_message
 
 if TYPE_CHECKING:
     from leaderboard.boards.config import BoardsFile
@@ -99,19 +99,38 @@ class LeaderboardService:
                 row.results.clear()
                 session.flush()  # delete old results before inserting new ones (unique per game)
 
-            played_on = local_date(msg.posted_at, self.tz)
-            for parsed in results:
-                result = GameResult(game=parsed.game, platform=msg.platform, user_id=msg.user_id,
-                                    score=parsed.score, puzzle=parsed.puzzle, played_on=played_on,
-                                    posted_at=row.posted_at)
-                result.rounds = [GameRound(round_no=i, value=v) for i, v in enumerate(parsed.rounds, 1)]
-                row.results.append(result)
+            self._add_results(row, results)
 
     def on_message_deleted(self, platform: str, channel_id: str, message_id: str) -> None:
         with self.sessions.begin() as session:
             row = self._find(session, platform, channel_id, message_id)
             if row is not None:
                 session.delete(row)
+
+    def reparse(self) -> int:
+        """Rebuild every result from the stored messages (e.g. after a game config changed).
+
+        Returns the number of results.
+        """
+        games = list(self.games.values())
+        with self.sessions.begin() as session:
+            session.execute(delete(GameResult))  # rounds go via ON DELETE CASCADE
+            count = 0
+            for row in session.scalars(select(Message).order_by(Message.posted_at, Message.id)).all():
+                parsed = parse_message(row.text, games)
+                self._add_results(row, parsed)
+                count += len(parsed)
+        log.info("Reparsed stored messages: %d results", count)
+        return count
+
+    def _add_results(self, row: Message, results: list[ParsedResult]) -> None:
+        played_on = local_date(row.posted_at, self.tz)
+        for parsed in results:
+            result = GameResult(game=parsed.game, platform=row.platform, user_id=row.user_id,
+                                score=parsed.score, puzzle=parsed.puzzle, played_on=played_on,
+                                posted_at=row.posted_at)
+            result.rounds = [GameRound(round_no=i, value=v) for i, v in enumerate(parsed.rounds, 1)]
+            row.results.append(result)
 
     @staticmethod
     def _find(session: Session, platform: str, channel_id: str, message_id: str) -> Message | None:
@@ -131,9 +150,6 @@ class LeaderboardService:
 
     def backfill(self, port: ChatPort, *, since: datetime | None = None, default_days: int = 90) -> int:
         raise NotImplementedError  # T-204
-
-    def reparse(self) -> int:
-        raise NotImplementedError  # T-203
 
     def latest_posted_at(self, platform: str, channel_id: str) -> datetime | None:
         raise NotImplementedError  # T-204

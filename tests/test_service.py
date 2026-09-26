@@ -153,3 +153,53 @@ def test_results_copy_message_identity(service, sessions) -> None:  # noqa: ANN0
 def test_today_defaults_to_now_in_tz(sessions) -> None:  # noqa: ANN001
     service = make_service(sessions, today=None)
     assert service.today() == datetime.now(NY).date()
+
+
+# ── reparse (T-203) ──
+
+
+def test_reparse_applies_changed_game_config(sessions) -> None:  # noqa: ANN001
+    service = make_service(sessions)
+    service.on_message(msg(SAMPLES["krillion_basic"], "1"))
+    service.on_message(msg(SAMPLES["timeguessr_basic"], "2"))
+    service.on_message(msg(SAMPLES["not_a_game"], "3"))
+
+    # a new config reads Krillion's puzzle number as the score (deliberately different)
+    games = sample_games()
+    games["krillion"] = games["krillion"].model_copy(update={
+        "score": games["krillion"].score.model_copy(update={"pattern": r"Krillion #(?P<value>\d+)"}),  # type: ignore[union-attr]
+        "rounds": None, "values": {},
+    })
+    changed = make_service(sessions, games=games)
+    assert changed.reparse() == 2
+    by_game = {r.game: r for r in results(sessions)}
+    assert by_game["krillion"].score == 72.0 and by_game["krillion"].rounds == []
+    assert by_game["timeguessr"].score == 38532.0
+
+
+def test_reparse_picks_up_newly_added_games(sessions) -> None:  # noqa: ANN001
+    games = sample_games()
+    only_tg = make_service(sessions, games={"timeguessr": games["timeguessr"]})
+    only_tg.on_message(msg(SAMPLES["krillion_basic"], "1"))  # stored, but Krillion isn't configured yet
+    assert results(sessions) == []
+    assert make_service(sessions).reparse() == 1
+    assert [r.game for r in results(sessions)] == ["krillion"]
+
+
+def test_reparse_is_stable(service, sessions) -> None:  # noqa: ANN001
+    service.on_message(msg(SAMPLES["two_games_one_message"], "1"))
+    service.on_message(msg(SAMPLES["krillion_basic"], "2"))
+    first = service.reparse()
+    second = service.reparse()
+    assert first == second == 3
+    assert (count(sessions, GameResult), count(sessions, GameRound)) == (3, 14)
+
+
+def test_reparse_keeps_local_played_on(service, sessions) -> None:  # noqa: ANN001
+    service.on_message(msg(SAMPLES["krillion_basic"], at=datetime(2026, 9, 25, 3, 30, tzinfo=UTC)))
+    service.reparse()
+    assert results(sessions)[0].played_on == date(2026, 9, 24)
+
+
+def test_reparse_empty_database(service) -> None:  # noqa: ANN001
+    assert service.reparse() == 0

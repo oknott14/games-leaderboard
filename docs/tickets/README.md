@@ -317,7 +317,7 @@ The single source of truth for who's doing what. Statuses: `Todo` → `In progre
 | [T-108](T-108-parse-cli.md) | `leaderboard parse` debugging tool | A | S | T-102, T-103 | oknott14 | Done |
 | [T-201](T-201-db-session-factory.md) | Database session factory | B | S | T-006 | oknott14 | Done |
 | [T-202](T-202-message-ingest.md) | Message ingest: upsert, edit, delete | B | M | T-201 | oknott14 | Done |
-| [T-203](T-203-reparse.md) | Reparse all stored messages | B | S | T-202 | | Todo |
+| [T-203](T-203-reparse.md) | Reparse all stored messages | B | S | T-202 | oknott14 | Done |
 | [T-204](T-204-backfill.md) | History backfill | B | S | T-202 | | Todo |
 | [T-205](T-205-run-query.md) | run_query: load rows & build BoardResult | B | S | T-202 | | Todo |
 | [T-206](T-206-on-command.md) | on_command dispatch & error fallback | B | S | T-205 | | Todo |
