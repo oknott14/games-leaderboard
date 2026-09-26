@@ -32,6 +32,6 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] `parse_number` handles `"38,532"`, `" 7 "`, map `X→7`, the float type, and garbage (→ `None`).
-- [ ] Each invalid-config case in `01-parsing.md` §7 (except the cross-file ones) is rejected with a message naming the field.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] `parse_number` handles `"38,532"`, `" 7 "`, map `X→7`, the float type, and garbage (→ `None`).
+- [x] Each invalid-config case in `01-parsing.md` §7 (except the cross-file ones) is rejected with a message naming the field.
+- [x] `uv run pytest` passes; committed and pushed to `master`

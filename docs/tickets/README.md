@@ -307,7 +307,7 @@ The single source of truth for who's doing what. Statuses: `Todo` → `In progre
 | [T-004](T-004-boards-contracts.md) | Boards engine contracts & plugin decorators | 0 | M | T-001 | oknott14 | Done |
 | [T-005](T-005-remaining-stubs.md) | Remaining module stubs | 0 | S | T-002, T-003, T-004 | oknott14 | Done |
 | [T-006](T-006-test-fakes.md) | Shared test fakes & contract smoke tests (milestone M0) | 0 | M | T-005 | oknott14 | Done |
-| [T-101](T-101-config-validation.md) | Game config validation & number parsing | A | S | T-006 | | Todo |
+| [T-101](T-101-config-validation.md) | Game config validation & number parsing | A | S | T-006 | oknott14 | Done |
 | [T-102](T-102-load-games.md) | Load game configs from a directory | A | S | T-101 | | Todo |
 | [T-103](T-103-parse-message.md) | parse_message: detect, score, puzzle, multi-game | A | M | T-101 | | Todo |
 | [T-104](T-104-rounds-extraction.md) | Per-round extraction & from_rounds totals | A | M | T-103 | | Todo |

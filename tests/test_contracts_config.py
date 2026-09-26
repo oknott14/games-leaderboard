@@ -14,6 +14,11 @@ from leaderboard.parser import ParsedResult, parse_message
 PARSING_DOC = Path(__file__).parents[1] / "docs" / "plan" / "01-parsing.md"
 
 
+def minimal(name: str = "g") -> GameConfig:
+    """The smallest valid game (detect + score pattern)."""
+    return GameConfig(name=name, detect="x", score={"pattern": "(?P<value>\\d+)"})
+
+
 def doc_game_examples() -> dict[str, str]:
     """The `# games/<name>.yaml` example blocks from 01-parsing.md, keyed by game name."""
     blocks = re.findall(r"```yaml\n(# games/(\w+)\.yaml.*?)```", PARSING_DOC.read_text(), re.S)
@@ -39,13 +44,13 @@ def test_krillion_example_keeps_emoji_map_and_check_sum() -> None:
 
 
 def test_defaults() -> None:
-    game = GameConfig(name="g")
+    game = minimal()
     assert (game.enabled, game.higher_is_better, game.duplicates) == (True, True, "first")
     assert (game.aliases, game.flags, game.values) == ([], [], {})
 
 
 def test_mutable_defaults_not_shared() -> None:
-    a, b = GameConfig(name="a"), GameConfig(name="b")
+    a, b = minimal("a"), minimal("b")
     a.aliases.append("x")
     assert b.aliases == []
 
@@ -66,8 +71,8 @@ def test_unknown_keys_rejected(raw: dict) -> None:
 
 @pytest.mark.parametrize("name", ["MapTap", "map-tap", "map tap", ""])
 def test_name_must_be_slug(name: str) -> None:
-    with pytest.raises(ValidationError):
-        GameConfig(name=name)
+    with pytest.raises(ValidationError, match="should match pattern"):
+        minimal(name)
 
 
 @pytest.mark.parametrize(
@@ -92,7 +97,7 @@ def test_parsed_result_is_frozen_with_defaults() -> None:
 
 
 def test_logic_is_stubbed() -> None:
-    game = GameConfig(name="g")
+    game = minimal()
     with pytest.raises(NotImplementedError):
         game.value_names()
     with pytest.raises(NotImplementedError):
