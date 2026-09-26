@@ -4,11 +4,14 @@ from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
-from conftest import SAMPLES, FakePort, sample_games
+from conftest import SAMPLES, FakePort, make_board, sample_games
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from leaderboard.boards import engine
 from leaderboard.boards.config import BoardsFile
+from leaderboard.boards.core import DateRange, Standing
+from leaderboard.commands import Query
 from leaderboard.models import GameResult, GameRound, Message
 from leaderboard.ports import ChatMessage
 from leaderboard.service import LeaderboardService, from_db, local_date, to_db
@@ -273,3 +276,63 @@ def test_backfill_replay_is_idempotent(service, sessions) -> None:  # noqa: ANN0
     service.backfill(port, since=T0 - timedelta(days=1))
     service.backfill(port, since=T0 - timedelta(days=1))
     assert (count(sessions, Message), count(sessions, GameResult), count(sessions, GameRound)) == (6, 3, 21)
+
+
+# ── run_query (T-205), with the engine stubbed until T-315 ──
+
+
+@pytest.fixture
+def fake_engine(monkeypatch: pytest.MonkeyPatch) -> dict[str, list]:
+    """Engine stand-in: every game applies except TimeGuessr for `top_round`; run_board returns one
+    standing per loaded row and records the ranges it was asked to load."""
+    calls: dict[str, list] = {"loaded": []}
+
+    def run_board(board, game, anchor, load_rows):  # noqa: ANN001, ANN202
+        rows = load_rows(DateRange(date(2026, 9, 21), anchor))
+        calls["loaded"].append((game.name, rows))
+        return [Standing(r.player, r.score, 1, i) for i, r in enumerate(rows, 1)]
+
+    monkeypatch.setattr(engine, "run_board", run_board)
+    monkeypatch.setattr(engine, "board_applies", lambda b, g: not (b.name == "top_round" and g.name == "timeguessr"))
+    monkeypatch.setattr(engine, "board_range", lambda b, a: DateRange(date(2026, 9, 21), a))
+    monkeypatch.setattr(engine, "board_unit", lambda b: "days")
+    return calls
+
+
+def seed(service: LeaderboardService) -> None:
+    for i, (text, day) in enumerate([
+        (SAMPLES["krillion_basic"], 20), (SAMPLES["krillion_basic"], 22),  # 20th is before the range
+        (SAMPLES["timeguessr_basic"], 23), (SAMPLES["krillion_slack"], 24),
+    ]):
+        service.on_message(msg(text, str(i), at=datetime(2026, 9, day, 16, tzinfo=UTC)))
+
+
+def test_run_query_loads_rows_in_range_per_game(service, fake_engine) -> None:  # noqa: ANN001
+    seed(service)
+    result = service.run_query(Query(make_board(name="weekly"), None, date(2026, 9, 24)))
+    assert [s.game.name for s in result.sections] == ["timeguessr", "krillion"]  # games order; maptap empty
+    loaded = dict(fake_engine["loaded"])
+    assert [r.played_on for r in loaded["krillion"]] == [date(2026, 9, 22), date(2026, 9, 24)]
+    assert loaded["krillion"][0].rounds == (85.0, 100.0, 30.0, 85.0, 85.0, 60.0, 60.0)
+    assert loaded["maptap"] == []
+    assert (result.anchor, result.range.start, result.unit) == (date(2026, 9, 24), date(2026, 9, 21), "days")
+
+
+def test_run_query_game_filter(service, fake_engine) -> None:  # noqa: ANN001
+    seed(service)
+    result = service.run_query(Query(make_board(), ["krillion"], date(2026, 9, 24)))
+    assert [s.game.name for s in result.sections] == ["krillion"]
+    assert [g for g, _ in fake_engine["loaded"]] == ["krillion"]
+
+
+def test_run_query_skips_games_the_board_doesnt_apply_to(service, fake_engine) -> None:  # noqa: ANN001
+    seed(service)
+    service.run_query(Query(make_board(name="top_round"), None, date(2026, 9, 24)))
+    assert "timeguessr" not in [g for g, _ in fake_engine["loaded"]]
+
+
+def test_load_rows_unbounded_start(service) -> None:  # noqa: ANN001
+    seed(service)
+    rows = service._load_rows("krillion", DateRange(None, date(2026, 9, 24)))
+    assert [r.played_on.day for r in rows] == [20, 22, 24]
+    assert rows[0].player == ("slack", "U1") and rows[0].posted_at.tzinfo is None

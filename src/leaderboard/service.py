@@ -9,12 +9,15 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Mapping
 from datetime import UTC, date, datetime, timedelta
+from functools import partial
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, func, select
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session, selectinload, sessionmaker
 
+from leaderboard.boards import engine as board_engine
+from leaderboard.boards.core import DateRange, ResultRow
 from leaderboard.models import GameResult, GameRound, Message
 from leaderboard.parser import ParsedResult, parse_message
 
@@ -170,11 +173,43 @@ class LeaderboardService:
             )
         )
 
+    # ── queries ──
+
+    def run_query(self, query: Query) -> BoardResult:
+        """Run a board for every requested (or every applicable) game, in games order."""
+        board, anchor = query.board, query.anchor
+        wanted = set(query.games) if query.games is not None else None
+        sections = []
+        for game in self.games.values():
+            if wanted is not None and game.name not in wanted:
+                continue
+            if not board_engine.board_applies(board, game):
+                continue
+            standings = board_engine.run_board(board, game, anchor, partial(self._load_rows, game.name))
+            if standings:
+                sections.append(board_engine.GameBoardResult(game, standings))
+        return board_engine.BoardResult(board, anchor, board_engine.board_range(board, anchor),
+                                        board_engine.board_unit(board), sections)
+
+    def _load_rows(self, game: str, date_range: DateRange) -> list[ResultRow]:
+        """Every stored result for `game` with played_on in the (inclusive) range."""
+        stmt = (
+            select(GameResult)
+            .where(GameResult.game == game, GameResult.played_on <= date_range.end)
+            .options(selectinload(GameResult.rounds))
+            .order_by(GameResult.played_on, GameResult.posted_at, GameResult.id)
+        )
+        if date_range.start is not None:
+            stmt = stmt.where(GameResult.played_on >= date_range.start)
+        with self.sessions() as session:
+            return [
+                ResultRow(player=(r.platform, r.user_id), game=r.game, played_on=r.played_on,
+                          posted_at=r.posted_at, score=r.score, rounds=tuple(x.value for x in r.rounds))
+                for r in session.scalars(stmt)
+            ]
+
     # ── not yet implemented ──
 
     def on_command(self, text: str) -> str:
         raise NotImplementedError  # T-206
-
-    def run_query(self, query: Query) -> BoardResult:
-        raise NotImplementedError  # T-205
 

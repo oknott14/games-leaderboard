@@ -319,7 +319,7 @@ The single source of truth for who's doing what. Statuses: `Todo` → `In progre
 | [T-202](T-202-message-ingest.md) | Message ingest: upsert, edit, delete | B | M | T-201 | oknott14 | Done |
 | [T-203](T-203-reparse.md) | Reparse all stored messages | B | S | T-202 | oknott14 | Done |
 | [T-204](T-204-backfill.md) | History backfill | B | S | T-202 | oknott14 | Done |
-| [T-205](T-205-run-query.md) | run_query: load rows & build BoardResult | B | S | T-202 | | Todo |
+| [T-205](T-205-run-query.md) | run_query: load rows & build BoardResult | B | S | T-202 | oknott14 | Done |
 | [T-206](T-206-on-command.md) | on_command dispatch & error fallback | B | S | T-205 | | Todo |
 | [T-301](T-301-windows.md) | Built-in windows | C1 | S | T-006 | | Todo |
 | [T-302](T-302-core-aggregators.md) | Core aggregators | C1 | S | T-006 | | Todo |

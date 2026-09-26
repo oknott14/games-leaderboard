@@ -27,7 +27,7 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] `load_rows` returns only rows in the range, for the right game, with rounds in order.
-- [ ] Games that don't apply are skipped.
-- [ ] Empty sections are dropped.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] `load_rows` returns only rows in the range, for the right game, with rounds in order.
+- [x] Games that don't apply are skipped.
+- [x] Empty sections are dropped.
+- [x] `uv run pytest` passes; committed and pushed to `master`
