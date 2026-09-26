@@ -314,7 +314,7 @@ The single source of truth for who's doing what. Statuses: `Todo` → `In progre
 | [T-105](T-105-derived-values.md) | Derived values API on GameConfig | A | S | T-101 | oknott14 | Done |
 | [T-106](T-106-plugin-parser.md) | Plugin parser escape hatch | A | S | T-103 | oknott14 | Done |
 | [T-107](T-107-starter-games.md) | Starter game configs verified against real shares ⚑ | A | S | T-102, T-104, T-105 | | Todo |
-| [T-108](T-108-parse-cli.md) | `leaderboard parse` debugging tool | A | S | T-102, T-103 | | Todo |
+| [T-108](T-108-parse-cli.md) | `leaderboard parse` debugging tool | A | S | T-102, T-103 | oknott14 | Done |
 | [T-201](T-201-db-session-factory.md) | Database session factory | B | S | T-006 | | Todo |
 | [T-202](T-202-message-ingest.md) | Message ingest: upsert, edit, delete | B | M | T-201 | | Todo |
 | [T-203](T-203-reparse.md) | Reparse all stored messages | B | S | T-202 | | Todo |
