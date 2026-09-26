@@ -304,7 +304,7 @@ The single source of truth for who's doing what. Statuses: `Todo` → `In progre
 | [T-001](T-001-project-scaffold.md) | Project scaffold | 0 | S | — | oknott14 | Done |
 | [T-002](T-002-ports-and-models.md) | Chat ports & ORM models | 0 | S | T-001 | oknott14 | Done |
 | [T-003](T-003-game-config-schema.md) | Game config schema & parser types | 0 | S | T-001 | oknott14 | Done |
-| [T-004](T-004-boards-contracts.md) | Boards engine contracts & plugin decorators | 0 | M | T-001 | | Todo |
+| [T-004](T-004-boards-contracts.md) | Boards engine contracts & plugin decorators | 0 | M | T-001 | oknott14 | Done |
 | [T-005](T-005-remaining-stubs.md) | Remaining module stubs | 0 | S | T-002, T-003, T-004 | | Todo |
 | [T-006](T-006-test-fakes.md) | Shared test fakes & contract smoke tests (milestone M0) | 0 | M | T-005 | | Todo |
 | [T-101](T-101-config-validation.md) | Game config validation & number parsing | A | S | T-006 | | Todo |
