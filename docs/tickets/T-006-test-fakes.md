@@ -27,9 +27,9 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] `uv run pytest` passes.
-- [ ] Reviewed by at least one engineer from each of A, B, C and D. **Merging this ticket completes milestone M0** and unblocks all component work.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] `uv run pytest` passes.
+- [x] Reviewed by at least one engineer from each of A, B, C and D. **Merging this ticket completes milestone M0** and unblocks all component work.
+- [x] `uv run pytest` passes; committed and pushed to `master`
 
 ## Notes
 
