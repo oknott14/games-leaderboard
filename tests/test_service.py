@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
-from conftest import SAMPLES, sample_games
+from conftest import SAMPLES, FakePort, sample_games
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -203,3 +203,73 @@ def test_reparse_keeps_local_played_on(service, sessions) -> None:  # noqa: ANN0
 
 def test_reparse_empty_database(service) -> None:  # noqa: ANN001
     assert service.reparse() == 0
+
+
+# ── backfill (T-204) ──
+
+
+class SpyPort(FakePort):
+    def __init__(self, **kw: object) -> None:
+        super().__init__(**kw)  # type: ignore[arg-type]
+        self.requests: list[tuple[str, datetime]] = []
+
+    def fetch_history(self, channel_id: str, oldest: datetime):  # noqa: ANN201
+        self.requests.append((channel_id, oldest))
+        return super().fetch_history(channel_id, oldest)
+
+
+def history(n: int, *, channel: str = "C1", start: datetime = T0) -> list[ChatMessage]:
+    return [msg(SAMPLES["krillion_basic"] if i % 2 == 0 else SAMPLES["not_a_game"], f"{channel}-{i}",
+                channel=channel, at=start + timedelta(hours=i)) for i in range(n)]
+
+
+def test_latest_posted_at(service) -> None:  # noqa: ANN001
+    assert service.latest_posted_at("slack", "C1") is None
+    service.on_message(msg("a", "1", at=T0))
+    service.on_message(msg("b", "2", at=T0 + timedelta(hours=3)))
+    latest = service.latest_posted_at("slack", "C1")
+    assert latest == T0 + timedelta(hours=3) and latest.tzinfo is UTC
+    assert service.latest_posted_at("slack", "C9") is None
+
+
+def test_backfill_ingests_history(service, sessions) -> None:  # noqa: ANN001
+    port = SpyPort(history=history(4))
+    assert service.backfill(port, since=T0 - timedelta(days=1)) == 4
+    assert (count(sessions, Message), count(sessions, GameResult)) == (4, 2)
+
+
+def test_backfill_explicit_since(service) -> None:  # noqa: ANN001
+    port = SpyPort()
+    service.backfill(port, since=T0)
+    assert port.requests == [("C1", T0)]
+
+
+def test_backfill_first_run_uses_default_days(service) -> None:  # noqa: ANN001
+    port = SpyPort()
+    before = datetime.now(UTC)
+    service.backfill(port, default_days=30)
+    ((_, oldest),) = port.requests
+    assert before - timedelta(days=30, seconds=5) <= oldest <= datetime.now(UTC) - timedelta(days=30)
+
+
+def test_backfill_resumes_a_day_before_latest(service) -> None:  # noqa: ANN001
+    service.on_message(msg("seen", "1", at=T0))
+    port = SpyPort()
+    service.backfill(port)
+    assert port.requests == [("C1", T0 - timedelta(days=1))]
+
+
+def test_backfill_every_channel_independently(sessions) -> None:  # noqa: ANN001
+    service = make_service(sessions, channel_ids=frozenset({"C1", "C2"}))
+    service.on_message(msg("seen", "1", channel="C1", at=T0))
+    port = SpyPort(history=history(2, channel="C2"))
+    assert service.backfill(port) == 2
+    (c1, c2) = port.requests
+    assert c1 == ("C1", T0 - timedelta(days=1)) and c2[0] == "C2"
+
+
+def test_backfill_replay_is_idempotent(service, sessions) -> None:  # noqa: ANN001
+    port = SpyPort(history=history(6))
+    service.backfill(port, since=T0 - timedelta(days=1))
+    service.backfill(port, since=T0 - timedelta(days=1))
+    assert (count(sessions, Message), count(sessions, GameResult), count(sessions, GameRound)) == (6, 3, 21)

@@ -25,6 +25,6 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] All three `since` rules are covered, using `FakePort`.
-- [ ] Replaying the same history twice leaves identical row counts.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] All three `since` rules are covered, using `FakePort`.
+- [x] Replaying the same history twice leaves identical row counts.
+- [x] `uv run pytest` passes; committed and pushed to `master`

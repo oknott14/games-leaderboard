@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Mapping
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from leaderboard.models import GameResult, GameRound, Message
@@ -107,6 +107,36 @@ class LeaderboardService:
             if row is not None:
                 session.delete(row)
 
+    def backfill(self, port: ChatPort, *, since: datetime | None = None, default_days: int = 90) -> int:
+        """Ingest channel history the bot missed. Returns the number of messages processed.
+
+        Starts from `since` if given; otherwise a day before the latest stored message (to catch
+        recent edits), or `default_days` ago for a channel with nothing stored yet.
+        """
+        total = 0
+        for channel in sorted(self.channel_ids):
+            oldest = since
+            if oldest is None:
+                latest = self.latest_posted_at(port.platform, channel)
+                oldest = latest - timedelta(days=1) if latest else datetime.now(UTC) - timedelta(days=default_days)
+            processed = 0
+            for msg in port.fetch_history(channel, oldest):
+                self.on_message(msg)
+                processed += 1
+            log.info("Backfilled %s channel %s since %s: %d messages", port.platform, channel,
+                     oldest.isoformat(timespec="seconds"), processed)
+            total += processed
+        return total
+
+    def latest_posted_at(self, platform: str, channel_id: str) -> datetime | None:
+        with self.sessions() as session:
+            latest = session.scalar(
+                select(func.max(Message.posted_at)).where(
+                    Message.platform == platform, Message.channel_id == channel_id
+                )
+            )
+        return from_db(latest) if latest is not None else None
+
     def reparse(self) -> int:
         """Rebuild every result from the stored messages (e.g. after a game config changed).
 
@@ -148,8 +178,3 @@ class LeaderboardService:
     def run_query(self, query: Query) -> BoardResult:
         raise NotImplementedError  # T-205
 
-    def backfill(self, port: ChatPort, *, since: datetime | None = None, default_days: int = 90) -> int:
-        raise NotImplementedError  # T-204
-
-    def latest_posted_at(self, platform: str, channel_id: str) -> datetime | None:
-        raise NotImplementedError  # T-204
