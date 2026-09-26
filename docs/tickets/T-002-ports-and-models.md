@@ -32,8 +32,8 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] `Base.metadata.create_all` works on a temporary SQLite file.
-- [ ] Inserting a duplicate `(platform, channel_id, message_id)` raises `IntegrityError`.
-- [ ] Deleting a `Message` through the ORM removes its results and rounds.
-- [ ] `GameResult.rounds` comes back ordered by `round_no`.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [x] `Base.metadata.create_all` works on a temporary SQLite file.
+- [x] Inserting a duplicate `(platform, channel_id, message_id)` raises `IntegrityError`.
+- [x] Deleting a `Message` through the ORM removes its results and rounds.
+- [x] `GameResult.rounds` comes back ordered by `round_no`.
+- [x] `uv run pytest` passes; committed and pushed to `master`
