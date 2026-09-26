@@ -316,7 +316,7 @@ The single source of truth for who's doing what. Statuses: `Todo` → `In progre
 | [T-107](T-107-starter-games.md) | Starter game configs verified against real shares ⚑ | A | S | T-102, T-104, T-105 | | Todo |
 | [T-108](T-108-parse-cli.md) | `leaderboard parse` debugging tool | A | S | T-102, T-103 | oknott14 | Done |
 | [T-201](T-201-db-session-factory.md) | Database session factory | B | S | T-006 | oknott14 | Done |
-| [T-202](T-202-message-ingest.md) | Message ingest: upsert, edit, delete | B | M | T-201 | | Todo |
+| [T-202](T-202-message-ingest.md) | Message ingest: upsert, edit, delete | B | M | T-201 | oknott14 | Done |
 | [T-203](T-203-reparse.md) | Reparse all stored messages | B | S | T-202 | | Todo |
 | [T-204](T-204-backfill.md) | History backfill | B | S | T-202 | | Todo |
 | [T-205](T-205-run-query.md) | run_query: load rows & build BoardResult | B | S | T-202 | | Todo |
