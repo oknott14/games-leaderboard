@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import importlib
 import logging
 import math
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, TypeAlias
 
 from leaderboard.config import parse_number, reduce_rounds
@@ -41,7 +42,7 @@ def parse_message(text: str, games: Iterable[GameConfig]) -> list[ParsedResult]:
 
 def _parse_game(text: str, game: GameConfig) -> ParsedResult | None:
     if game.parser is not None:
-        return None  # plugin parsers: T-106
+        return _parse_with_plugin(text, game)
     assert game.detect_re is not None and game.score is not None
     if not game.detect_re.search(text):
         return None
@@ -59,6 +60,34 @@ def _parse_game(text: str, game: GameConfig) -> ParsedResult | None:
     if game.puzzle_re is not None and (match := game.puzzle_re.search(text)) and match["value"]:
         puzzle = match["value"].strip()
     return ParsedResult(game=game.name, score=score, rounds=rounds, puzzle=puzzle)
+
+
+_plugins: dict[str, PluginParser] = {}
+
+
+def _load_plugin(game: GameConfig) -> PluginParser:
+    """Resolve `game.parser` ("module:function") on first use; the plugins dir is on sys.path."""
+    assert game.parser is not None
+    if game.parser not in _plugins:
+        module_name, _, func_name = game.parser.partition(":")
+        try:
+            func = getattr(importlib.import_module(module_name), func_name)
+        except (ImportError, AttributeError) as exc:
+            raise ValueError(f"game {game.name!r}: can't load parser {game.parser!r}: {exc}") from exc
+        if not callable(func):
+            raise ValueError(f"game {game.name!r}: parser {game.parser!r} is not callable")
+        _plugins[game.parser] = func
+    return _plugins[game.parser]
+
+
+def _parse_with_plugin(text: str, game: GameConfig) -> ParsedResult | None:
+    result = _load_plugin(game)(text)
+    if result is None:
+        return None
+    if not isinstance(result, ParsedResult):
+        log.warning("%s: parser %s returned %r, not a ParsedResult; ignoring", game.name, game.parser, result)
+        return None
+    return replace(result, game=game.name)
 
 
 def _extract_score(text: str, game: GameConfig, rounds: tuple[float, ...]) -> float | None:

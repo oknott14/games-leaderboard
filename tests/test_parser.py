@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import importlib
 import logging
+import re
 
 import pytest
 from conftest import SAMPLES, sample_games
@@ -227,3 +229,77 @@ def test_check_sum_warns_when_no_rounds_found(caplog: pytest.LogCaptureFixture) 
         result = only("Krillion #72 :shrimp:\n505\n\n:new_tile::other_tile:")
     assert (result.score, result.rounds) == (505.0, ())
     assert "check_sum: no rounds found" in caplog.text
+
+
+# ── plugin parsers (T-106) ──
+
+PLUGIN_SOURCE = '''
+from leaderboard.parser import ParsedResult
+
+calls = []
+
+def parse(text):
+    calls.append(text)
+    if "Weird" not in text:
+        return None
+    return ParsedResult(game="placeholder", score=42, rounds=(40, 2), puzzle="7")
+
+def broken(text):
+    return {"score": 1}
+
+not_a_function = 5
+'''
+
+
+@pytest.fixture
+def plugin_module(tmp_path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> str:
+    name = "weird_plugin_" + re.sub(r"\W", "_", request.node.name)  # unique per test
+    (tmp_path / f"{name}.py").write_text(PLUGIN_SOURCE)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    return name
+
+
+def plugin_game(ref: str) -> GameConfig:
+    return GameConfig.model_validate({"name": "weird", "parser": ref})
+
+
+def test_plugin_parser_result_gets_the_game_name(plugin_module: str) -> None:
+    (result,) = parse_message("Weird game 42", [plugin_game(f"{plugin_module}:parse")])
+    assert result == ParsedResult(game="weird", score=42, rounds=(40, 2), puzzle="7")
+
+
+def test_plugin_returning_none_gives_no_result(plugin_module: str) -> None:
+    assert parse_message("nothing here", [plugin_game(f"{plugin_module}:parse")]) == []
+
+
+def test_plugin_is_resolved_once(plugin_module: str) -> None:
+    game = plugin_game(f"{plugin_module}:parse")
+    parse_message("a", [game])
+    parse_message("b", [game])
+    assert importlib.import_module(plugin_module).calls == ["a", "b"]
+
+
+def test_plugin_and_regex_games_mix(plugin_module: str) -> None:
+    games = [GAMES["krillion"], plugin_game(f"{plugin_module}:parse")]
+    results = parse_message(SAMPLES["krillion_basic"] + "\nWeird 42", games)
+    assert [r.game for r in results] == ["krillion", "weird"]
+
+
+@pytest.mark.parametrize(
+    ("func", "match"),
+    [("missing", "can't load parser"), ("not_a_function", "is not callable")],
+)
+def test_bad_plugin_reference_is_a_clear_error(plugin_module: str, func: str, match: str) -> None:
+    with pytest.raises(ValueError, match=rf"game 'weird': .*{match}"):
+        parse_message("x", [plugin_game(f"{plugin_module}:{func}")])
+
+
+def test_missing_plugin_module_is_a_clear_error() -> None:
+    with pytest.raises(ValueError, match="game 'weird': can't load parser 'no_such_module_xyz:parse'"):
+        parse_message("x", [plugin_game("no_such_module_xyz:parse")])
+
+
+def test_plugin_returning_wrong_type_is_ignored(plugin_module: str, caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.WARNING):
+        assert parse_message("x", [plugin_game(f"{plugin_module}:broken")]) == []
+    assert "not a ParsedResult" in caplog.text

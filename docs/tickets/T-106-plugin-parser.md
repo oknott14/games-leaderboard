@@ -27,7 +27,7 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] A plugin in `tmp_path` is called, and its result's `game` is overridden.
-- [ ] A plugin returning `None` gives no result.
-- [ ] A bad `module:function` gives a clear error.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] A plugin in `tmp_path` is called, and its result's `game` is overridden.
+- [x] A plugin returning `None` gives no result.
+- [x] A bad `module:function` gives a clear error.
+- [x] `uv run pytest` passes; committed and pushed to `master`
