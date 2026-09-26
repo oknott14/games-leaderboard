@@ -27,4 +27,7 @@ packages = ["src/leaderboard"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Don't rely on the editable-install .pth alone: macOS can flag files in .venv as hidden (e.g. in
+# an iCloud-synced folder), and Python 3.12+ skips hidden .pth files.
+pythonpath = ["src"]
 addopts = "-ra"
