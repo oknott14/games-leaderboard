@@ -28,9 +28,9 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] Each rejection case is covered (unknown type, window, aggregator, value or game; bad params; unknown schedule board; bad cron).
-- [ ] `defaults` are merged.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] Each rejection case is covered (unknown type, window, aggregator, value or game; bad params; unknown schedule board; bad cron).
+- [x] `defaults` are merged.
+- [x] `uv run pytest` passes; committed and pushed to `master`
 
 ## Notes
 

@@ -1,18 +1,19 @@
-"""`boards.yaml` schema: saved leaderboards and the auto-post schedule.
-
-Schema only. Checking references against the registries and games is `load_boards` (T-322).
-"""
+"""`boards.yaml`: saved leaderboards and the auto-post schedule (schema and loader)."""
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+import yaml
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 if TYPE_CHECKING:
     from leaderboard.config import GameConfig
+
+log = logging.getLogger(__name__)
 
 POSITIONAL = "__positional__"  # scalar shorthand param, mapped to the first field by validate_params
 
@@ -99,5 +100,72 @@ class BoardsFile(BaseModel):
 
 
 def load_boards(path: Path, games: Mapping[str, GameConfig]) -> BoardsFile:
-    """Load `boards.yaml` and validate it against the registries and `games`."""
-    raise NotImplementedError  # T-322
+    """Load `boards.yaml` and validate it against the registries and `games`.
+
+    `defaults` are merged under every board. The registries must already hold the built-ins and
+    plugins (`load_builtins`, `load_plugins`). A missing file gives an empty `BoardsFile`. Every
+    error is a `ValueError` starting with the file name (and the board, where there is one).
+    """
+    if not path.exists():
+        log.warning("%s not found: no saved boards or schedule", path)
+        return BoardsFile()
+    try:
+        raw = yaml.safe_load(path.read_text()) or {}
+    except yaml.YAMLError as exc:
+        raise ValueError(f"{path.name}: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise ValueError(f"{path.name}: expected a mapping at the top level")
+
+    defaults = raw.get("defaults") or {}
+    boards = raw.get("boards") or {}
+    if not isinstance(defaults, dict) or not isinstance(boards, dict):
+        raise ValueError(f"{path.name}: `defaults` and `boards` must be mappings")
+    merged = {name: defaults | (body or {}) for name, body in boards.items()}
+    try:
+        parsed = BoardsFile.model_validate(raw | {"boards": merged})
+    except ValidationError as exc:
+        raise ValueError(f"{path.name}: {exc}") from None
+
+    for name, board in parsed.boards.items():
+        try:
+            _check_board(board, games)
+        except ValueError as exc:
+            raise ValueError(f"{path.name}: board {name!r}: {exc}") from None
+    for i, entry in enumerate(parsed.schedule):
+        try:
+            _check_schedule_entry(entry, parsed.boards)
+        except ValueError as exc:
+            raise ValueError(f"{path.name}: schedule[{i}]: {exc}") from None
+    return parsed
+
+
+def _check_board(board: BoardConfig, games: Mapping[str, GameConfig]) -> None:
+    from leaderboard.boards.registry import AGGREGATORS, BOARD_TYPES, WINDOWS, validate_params  # (circular)
+
+    for kind, table, ref in (("type", BOARD_TYPES, board.type), ("window", WINDOWS, board.window),
+                             ("aggregate", AGGREGATORS, board.aggregate)):
+        if ref.name not in table:
+            raise ValueError(f"unknown {kind} {ref.name!r} (available: {', '.join(sorted(table))})")
+        validate_params(table[ref.name], ref.params)
+
+    if board.games is not None:
+        unknown = [g for g in board.games if g not in games]
+        if unknown:
+            raise ValueError(f"unknown game(s) {unknown}")
+        missing = [g for g in board.games if board.value not in games[g].value_names()]
+        if missing:
+            raise ValueError(f"value {board.value!r} isn't defined by {missing}")
+    elif not any(board.value in game.value_names() for game in games.values()):
+        raise ValueError(f"no game defines the value {board.value!r}")
+
+
+def _check_schedule_entry(entry: ScheduleEntry, boards: Mapping[str, BoardConfig]) -> None:
+    from apscheduler.triggers.cron import CronTrigger
+
+    unknown = [b for b in entry.boards if b not in boards]
+    if unknown:
+        raise ValueError(f"unknown board(s) {unknown}")
+    try:
+        CronTrigger.from_crontab(entry.cron)
+    except ValueError as exc:
+        raise ValueError(f"invalid cron {entry.cron!r}: {exc}") from None
