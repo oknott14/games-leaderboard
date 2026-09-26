@@ -94,9 +94,3 @@ def test_parsed_result_is_frozen_with_defaults() -> None:
     assert (result.rounds, result.puzzle) == ((), None)
     with pytest.raises(FrozenInstanceError):
         result.score = 1.0  # type: ignore[misc]
-
-
-def test_logic_is_stubbed() -> None:
-    game = minimal()
-    with pytest.raises(NotImplementedError):
-        game.value_names()

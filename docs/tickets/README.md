@@ -311,7 +311,7 @@ The single source of truth for who's doing what. Statuses: `Todo` → `In progre
 | [T-102](T-102-load-games.md) | Load game configs from a directory | A | S | T-101 | oknott14 | Done |
 | [T-103](T-103-parse-message.md) | parse_message: detect, score, puzzle, multi-game | A | M | T-101 | oknott14 | Done |
 | [T-104](T-104-rounds-extraction.md) | Per-round extraction & from_rounds totals | A | M | T-103 | oknott14 | Done |
-| [T-105](T-105-derived-values.md) | Derived values API on GameConfig | A | S | T-101 | | Todo |
+| [T-105](T-105-derived-values.md) | Derived values API on GameConfig | A | S | T-101 | oknott14 | Done |
 | [T-106](T-106-plugin-parser.md) | Plugin parser escape hatch | A | S | T-103 | | Todo |
 | [T-107](T-107-starter-games.md) | Starter game configs verified against real shares ⚑ | A | S | T-102, T-104, T-105 | | Todo |
 | [T-108](T-108-parse-cli.md) | `leaderboard parse` debugging tool | A | S | T-102, T-103 | | Todo |

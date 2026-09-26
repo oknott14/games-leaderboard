@@ -7,7 +7,9 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from leaderboard.config import GameConfig, NumberSpec, load_games, parse_number
+from conftest import sample_games
+
+from leaderboard.config import GameConfig, NumberSpec, load_games, parse_number, reduce_rounds
 
 BASE: dict[str, Any] = {"name": "g", "detect": "G #\\d+", "score": {"pattern": "(?P<value>\\d+)"}}
 ROUNDS = {"block": "(?P<block>.+)", "item": "\\d+"}
@@ -218,3 +220,60 @@ def test_empty_file_uses_stem_but_is_invalid(tmp_path: Path) -> None:
     write(tmp_path, "empty.yaml", "")
     with pytest.raises(ValueError, match="either `parser`"):
         load_games(tmp_path)
+
+
+# ── derived values (T-105) ──
+
+KRILLION_ROUNDS = (85.0, 100.0, 30.0, 85.0, 85.0, 60.0, 60.0)
+
+
+def krillion() -> GameConfig:
+    return sample_games()["krillion"]
+
+
+def test_label() -> None:
+    assert krillion().label == "Krillion"
+    assert game().label == "g"
+
+
+def test_value_names() -> None:
+    assert krillion().value_names() == ["score", "best_round", "worst_round", "round_avg"]
+    assert sample_games()["timeguessr"].value_names() == ["score"]
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [("score", 505.0), ("best_round", 100.0), ("worst_round", 30.0), ("round_avg", 505 / 7)],
+)
+def test_value(name: str, expected: float) -> None:
+    assert krillion().value(name, 505.0, KRILLION_ROUNDS) == pytest.approx(expected)
+
+
+def test_value_without_rounds_is_none() -> None:
+    assert krillion().value("best_round", 505.0, ()) is None
+    assert krillion().value("score", 505.0, ()) == 505.0
+
+
+def test_unknown_value_raises_key_error() -> None:
+    with pytest.raises(KeyError):
+        krillion().value("fastest", 1.0, ())
+    with pytest.raises(KeyError):
+        krillion().higher_is_better_for("fastest")
+
+
+def test_higher_is_better_for() -> None:
+    g = game(higher_is_better=False, rounds=ROUNDS, values={
+        "inherits": {"from_rounds": "max"},
+        "flipped": {"from_rounds": "max", "higher_is_better": True},
+    })
+    assert g.higher_is_better_for("score") is False
+    assert g.higher_is_better_for("inherits") is False
+    assert g.higher_is_better_for("flipped") is True
+
+
+@pytest.mark.parametrize(
+    ("reducer", "expected"), [("sum", 6.0), ("avg", 2.0), ("max", 3.0), ("min", 1.0)]
+)
+def test_reduce_rounds(reducer: str, expected: float) -> None:
+    assert reduce_rounds(reducer, (1.0, 2.0, 3.0)) == expected  # type: ignore[arg-type]
+    assert reduce_rounds(reducer, ()) is None  # type: ignore[arg-type]

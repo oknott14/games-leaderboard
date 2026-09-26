@@ -157,18 +157,27 @@ class GameConfig(BaseModel):
     @property
     def label(self) -> str:
         """`display_name`, or `name` when unset."""
-        raise NotImplementedError  # T-105
+        return self.display_name or self.name
 
     def value_names(self) -> list[str]:
         """`["score", *values]`."""
-        raise NotImplementedError  # T-105
+        return ["score", *self.values]
 
     def value(self, name: str, score: float, rounds: tuple[float, ...]) -> float | None:
-        """Compute a named value from a result; `None` if it can't be computed."""
-        raise NotImplementedError  # T-105
+        """Compute a named value from a result; `None` if it can't be computed (e.g. no rounds).
+
+        Raises `KeyError` for a value this game doesn't define.
+        """
+        if name == "score":
+            return score
+        return reduce_rounds(self.values[name].from_rounds, rounds)
 
     def higher_is_better_for(self, value_name: str) -> bool:
-        raise NotImplementedError  # T-105
+        """The value's own direction if it sets one, else the game's."""
+        if value_name == "score":
+            return self.higher_is_better
+        override = self.values[value_name].higher_is_better
+        return self.higher_is_better if override is None else override
 
 
 def reduce_rounds(reducer: Reducer, rounds: tuple[float, ...]) -> float | None:
