@@ -27,8 +27,8 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] A plugin in `tmp_path` registers.
-- [ ] A syntax error names the file.
-- [ ] `{last_n: 5}` shorthand validates to `n=5`.
-- [ ] Unexpected params on a component that has no params model are rejected.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] A plugin in `tmp_path` registers.
+- [x] A syntax error names the file.
+- [x] `{last_n: 5}` shorthand validates to `n=5`.
+- [x] Unexpected params on a component that has no params model are rejected.
+- [x] `uv run pytest` passes; committed and pushed to `master`

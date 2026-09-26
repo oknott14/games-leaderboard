@@ -160,8 +160,6 @@ def test_logic_is_stubbed() -> None:
         lambda: board_unit(board),
         lambda: board_applies(board, None),  # type: ignore[arg-type]
         lambda: run_board(board, None, day, lambda r: []),  # type: ignore[arg-type]
-        registry.load_builtins,
-        lambda: registry.load_plugins(Path(".")),
     ):
         with pytest.raises(NotImplementedError):
             call()
