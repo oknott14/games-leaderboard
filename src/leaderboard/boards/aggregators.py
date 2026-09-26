@@ -7,6 +7,9 @@ Each receives the player's entries (sorted by played_on) and an `AggContext` who
 from __future__ import annotations
 
 import statistics
+from datetime import timedelta
+
+from pydantic import BaseModel, ConfigDict, Field
 
 from leaderboard.boards.core import AggContext, Entry
 from leaderboard.boards.registry import aggregator
@@ -72,3 +75,38 @@ def first(entries: list[Entry], ctx: AggContext) -> float | None:
 @aggregator("count", description="Number of results", unit="games", higher_is_better=True)
 def count(entries: list[Entry], ctx: AggContext) -> float | None:
     return float(len(entries))
+
+
+@aggregator("stddev", description="Consistency: standard deviation of values (lower is better)",
+            higher_is_better=False)
+def stddev(entries: list[Entry], ctx: AggContext) -> float | None:
+    return statistics.pstdev(_values(entries)) if len(entries) >= 2 else None
+
+
+@aggregator("streak", description="Consecutive days played, up to the anchor day (or the day before)",
+            unit="days", higher_is_better=True)
+def streak(entries: list[Entry], ctx: AggContext) -> float | None:
+    days = {e.played_on for e in entries if e.played_on <= ctx.anchor}
+    if not days:
+        return 0.0
+    day = max(days)
+    if day < ctx.anchor - timedelta(days=1):
+        return 0.0  # the streak is broken: nothing today or yesterday
+    length = 0
+    while day in days:
+        length += 1
+        day -= timedelta(days=1)
+    return float(length)
+
+
+class TopKParams(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    k: int = Field(ge=1)
+
+
+@aggregator("top_k_avg", params=TopKParams, description="Average of the k best values")
+def top_k_avg(entries: list[Entry], ctx: AggContext) -> float | None:
+    assert isinstance(ctx.params, TopKParams)
+    top = sorted(_values(entries), reverse=ctx.higher_is_better)[: ctx.params.k]
+    return statistics.fmean(top) if top else None
