@@ -29,7 +29,7 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 - [ ] Positive always means improved, in both directions.
 - [ ] Players missing from either period are excluded.
 - [ ] An unbounded window raises.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`
 
 ## Notes
 

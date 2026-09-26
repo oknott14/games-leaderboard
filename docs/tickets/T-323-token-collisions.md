@@ -27,4 +27,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 ## Acceptance criteria
 
 - [ ] Each kind of collision is detected, and repeated value names across games are allowed.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

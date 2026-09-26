@@ -29,4 +29,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 ## Acceptance criteria
 
 - [ ] The starter `boards.yaml` and the example plugin load cleanly with the real registries.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

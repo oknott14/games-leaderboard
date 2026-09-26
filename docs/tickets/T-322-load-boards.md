@@ -30,7 +30,7 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 - [ ] Each rejection case is covered (unknown type, window, aggregator, value or game; bad params; unknown schedule board; bad cron).
 - [ ] `defaults` are merged.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`
 
 ## Notes
 

@@ -30,4 +30,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 - [ ] `load_rows` returns only rows in the range, for the right game, with rounds in order.
 - [ ] Games that don't apply are skipped.
 - [ ] Empty sections are dropped.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

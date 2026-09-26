@@ -31,4 +31,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 - [ ] A syntax error names the file.
 - [ ] `{last_n: 5}` shorthand validates to `n=5`.
 - [ ] Unexpected params on a component that has no params model are rejected.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

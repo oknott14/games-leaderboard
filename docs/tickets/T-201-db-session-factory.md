@@ -28,4 +28,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 - [ ] Creates a missing directory.
 - [ ] Foreign keys are enforced (a raw SQL delete of a message cascades).
 - [ ] `PRAGMA journal_mode` returns `wal`.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

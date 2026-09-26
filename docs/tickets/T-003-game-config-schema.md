@@ -36,4 +36,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 - [ ] Each example YAML in `01-parsing.md` §5.6 validates via `GameConfig.model_validate(yaml.safe_load(...) | {"name": ...})`.
 - [ ] An unknown key is rejected.
 - [ ] `ParsedResult` is frozen and its defaults match the contract.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

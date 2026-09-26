@@ -28,4 +28,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 ## Acceptance criteria
 
 - [ ] Every item in the `05-slack-adapter.md` §7 event, mention, slash-command and exception list.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

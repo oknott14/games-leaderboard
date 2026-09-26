@@ -25,4 +25,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 ## Acceptance criteria
 
 - [ ] `tests/test_e2e.py` passes in CI or locally without the network.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

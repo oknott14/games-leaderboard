@@ -25,4 +25,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 ## Acceptance criteria
 
 - [ ] A 2-page stub history plus one thread yields every message once, with no duplicate parents.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

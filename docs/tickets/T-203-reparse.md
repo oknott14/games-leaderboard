@@ -26,4 +26,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 - [ ] After swapping in a game config with a different score regex, `reparse` produces the new scores.
 - [ ] Row counts are stable when it runs twice.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

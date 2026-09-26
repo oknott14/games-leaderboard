@@ -28,4 +28,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 - [ ] `min_entries` is applied.
 - [ ] Players whose aggregate is `None` are dropped.
 - [ ] The direction is respected.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

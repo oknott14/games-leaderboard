@@ -88,7 +88,7 @@ results and rounds are stored with the local-timezone `played_on` date.
 | G | Ops, Docker & Slack app setup | [07-ops-setup.md](07-ops-setup.md) | 0 | S |
 | H | Integration & verification | [08-integration.md](08-integration.md) | F, G | S |
 
-Workstream 0 is the only step that must be done alone. Once its PR is merged, A, B, C, D, E and G
+Workstream 0 is the only step that must be done alone. Once its commits land on `master`, A, B, C, D, E and G
 can all start at the same time. C is the largest, and it can be split between up to three people
 (see its doc).
 
@@ -97,7 +97,7 @@ can all start at the same time. C is the largest, and it can be split between up
 Work is tracked per **ticket**, not per workstream. Each workstream is broken into small tickets
 in [`docs/tickets/`](../tickets/README.md). That overview holds the dependency graph, the order
 tickets can run in, suggested lanes per engineer, and the **tracker** (owner and status for every
-ticket). Branches and PRs are per ticket (`t-<nnn>-<slug>`).
+ticket). There are no branches or PRs: each ticket lands as commits directly on `master`.
 
 ## Working rules
 
@@ -107,16 +107,16 @@ ticket). Branches and PRs are per ticket (`t-<nnn>-<slug>`).
    [00-contracts.md](00-contracts.md) are shared. Workstream 0 creates them as stubs whose function
    bodies raise `NotImplementedError`. The workstream named next to each stub fills in the **body**
    without changing the signature.
-3. **Changing a contract** takes its own small PR that updates both `00-contracts.md` and the stub
+3. **Changing a contract** takes its own small commit that updates both `00-contracts.md` and the stub
    code, and it's reviewed by the owners of every workstream that uses it. Don't bundle a contract
-   change into a feature PR.
+   change into a feature commit.
 4. **Tests never touch the network.** Use the fakes in `tests/conftest.py` (`FakePort`,
    `sample_games`, `SAMPLES`, `make_rows`, `sessions`). Each workstream must be mergeable on its own.
-5. **One branch and one PR per ticket** (`t-<nnn>-<slug>`, PR title `T-<nnn>: <title>`).
-   `uv run pytest` must pass on every PR.
+5. **Commit straight to `master`. No branches, no PRs.** Commit messages start with `T-<nnn>: <title>`.
+   `uv run pytest` must pass before every push. Pull and rebase before pushing, so history stays linear.
 6. **Done means** every acceptance-criteria box in the ticket is ticked. A workstream is done when
    all its tickets are, and the acceptance criteria in its plan doc are met.
-7. **Open questions** go in the "Open questions" section of the relevant doc. Resolve them in a PR
+7. **Open questions** go in the "Open questions" section of the relevant doc. Resolve them in a commit
    and record lasting decisions in [decisions.md](decisions.md).
 
 ## Conventions

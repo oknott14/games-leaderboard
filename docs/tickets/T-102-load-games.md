@@ -30,4 +30,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 - [ ] Loads a temporary directory of valid games and skips the disabled ones.
 - [ ] A duplicate alias across two files gives an error naming the second file.
 - [ ] A malformed YAML file gives an error naming the file.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

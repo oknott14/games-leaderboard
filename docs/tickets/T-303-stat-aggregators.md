@@ -29,7 +29,7 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 - [ ] A gap resets `streak`, and a streak ending 2 or more days before the anchor is 0.
 - [ ] `stddev` returns `None` for a single entry.
 - [ ] `top_k_avg` respects the direction and `k`.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`
 
 ## Notes
 

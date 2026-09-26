@@ -26,4 +26,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 ## Acceptance criteria
 
 - [ ] Every §6 item is ticked, and any bugs are filed or fixed. **The bot is live.**
-- [ ] PR reviewed and merged
+- [ ] Committed and pushed to `master`

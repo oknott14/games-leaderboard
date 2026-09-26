@@ -32,4 +32,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 ## Acceptance criteria
 
 - [ ] Every ingest, edit, delete, channel-filter, timezone-boundary and `store_non_game` case in `02-persistence-service.md` §7.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

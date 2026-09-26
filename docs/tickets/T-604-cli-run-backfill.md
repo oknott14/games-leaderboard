@@ -29,4 +29,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 - [ ] Unit test with `SlackPort` monkeypatched to `FakePort`: the startup order and log lines, and `--days` sets `since`.
 - [ ] Manual: `uv run --env-file .env leaderboard run` connects (once T-702 has provided tokens).
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

@@ -30,4 +30,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 - [ ] `docker compose build` succeeds.
 - [ ] `docker compose run --rm bot leaderboard --help` works.
 - [ ] Once T-602 merges, `leaderboard check` runs in the container with the mounted configs.
-- [ ] PR reviewed and merged
+- [ ] Committed and pushed to `master`

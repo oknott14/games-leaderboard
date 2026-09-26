@@ -26,4 +26,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 - [ ] Slack accepts the manifest without errors.
 - [ ] Record whether slash commands need `interactivity` (open note in `05-slack-adapter.md`).
-- [ ] PR reviewed and merged
+- [ ] Committed and pushed to `master`

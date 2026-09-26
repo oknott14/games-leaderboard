@@ -29,4 +29,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 - [ ] Each aggregator is correct on a small list.
 - [ ] `best`/`worst` flip with the direction.
 - [ ] An empty list gives `None` (except `count`, which gives 0).
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

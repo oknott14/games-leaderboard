@@ -29,4 +29,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 - [ ] Month and year starts are correct.
 - [ ] `rolling_days: 7` covers exactly 7 days.
 - [ ] `last_n: 2` trims each player independently.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

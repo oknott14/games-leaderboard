@@ -34,4 +34,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 - [ ] Every enabled game parses all its real samples correctly.
 - [ ] Krillion `#72` sample gives score 505, puzzle `72` and rounds `(85, 100, 30, 85, 85, 60, 60)` in both raw-emoji and `:shortcode:` form, with no `check_sum` warning.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

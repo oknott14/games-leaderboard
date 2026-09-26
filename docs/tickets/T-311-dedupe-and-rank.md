@@ -27,4 +27,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 - [ ] Each policy picks the right row, including when rows arrive out of order.
 - [ ] Ties give 1, 1, 3, and both directions work.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

@@ -27,4 +27,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 - [ ] Every organisational item is resolved, with decisions recorded.
 - [ ] If a proxy or CA is needed, the values are documented for T-704.
-- [ ] PR reviewed and merged
+- [ ] Committed and pushed to `master`

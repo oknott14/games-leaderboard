@@ -29,7 +29,7 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 - [ ] `uv run pytest` passes.
 - [ ] Reviewed by at least one engineer from each of A, B, C and D. **Merging this ticket completes milestone M0** and unblocks all component work.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`
 
 ## Notes
 

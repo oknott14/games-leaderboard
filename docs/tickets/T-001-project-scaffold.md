@@ -38,7 +38,7 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] `uv sync` succeeds on a clean checkout.
-- [ ] `uv run pytest` runs and passes (one smoke test that imports `leaderboard`).
-- [ ] `uv run leaderboard` exits 0.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [x] `uv sync` succeeds on a clean checkout.
+- [x] `uv run pytest` runs and passes (one smoke test that imports `leaderboard`).
+- [x] `uv run leaderboard` exits 0.
+- [x] `uv run pytest` passes; committed and pushed to `master`

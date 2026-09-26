@@ -25,4 +25,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 - [ ] A new engineer can go from a clean checkout to `leaderboard check` passing, using only the README.
 - [ ] Every command in the README actually works.
-- [ ] PR reviewed and merged
+- [ ] Committed and pushed to `master`

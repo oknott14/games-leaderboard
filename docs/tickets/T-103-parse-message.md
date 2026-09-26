@@ -35,4 +35,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 - [ ] Two games in one message give two results.
 - [ ] A non-game message gives `[]`.
 - [ ] `detect` matching with the score missing gives `[]` plus a warning (`caplog`).
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

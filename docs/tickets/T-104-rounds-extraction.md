@@ -32,4 +32,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 - [ ] `from_rounds: sum` gives the correct total.
 - [ ] Krillion tiles (`🏮🌟🐟🏮🏮🦑🦑`, and the same as `:izakaya_lantern::star2:…`) give `(85, 100, 30, 85, 85, 60, 60)` via `map`.
 - [ ] `check_sum`: a mismatched total logs a warning (`caplog`), a matching one logs nothing, and the posted score is kept either way.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

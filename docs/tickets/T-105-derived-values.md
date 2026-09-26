@@ -28,7 +28,7 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 ## Acceptance criteria
 
 - [ ] `best_round`, `round_avg` and `worst_round` are correct. They're `None` with no rounds. An unknown value raises `KeyError`. The direction override works.
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`
 
 ## Notes
 

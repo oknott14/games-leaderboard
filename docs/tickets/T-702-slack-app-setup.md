@@ -29,4 +29,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 - [ ] The app is installed and in the channel.
 - [ ] `auth.test` succeeds with the bot token.
 - [ ] The operator has `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN` and `SLACK_CHANNEL_IDS`.
-- [ ] PR reviewed and merged
+- [ ] Committed and pushed to `master`

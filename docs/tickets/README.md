@@ -10,15 +10,16 @@ can be in progress at the same time**.
 1. Choose a ticket in **Todo** whose **Depends on** tickets are all **Done**. The [waves](#waves)
    table shows what can run at the same time, and the [lanes](#suggested-lanes) keep work that
    touches the same files with the same person.
-2. Put your name in the [tracker](#tracker) and set the status to **In progress** (a one-line PR,
-   or include it in your first PR).
+2. Put your name in the [tracker](#tracker) and set the status to **In progress** (commit and push that
+   straight away, so nobody else picks it up).
 3. Read the ticket's **Read first** links, [`00-contracts.md`](../plan/00-contracts.md) and the
    [working rules](../plan/README.md#working-rules).
-4. Branch `t-<nnn>-<slug>` (e.g. `t-101-config-validation`). Only edit the files the ticket lists.
+4. Work on `master` (there are no ticket branches). Only edit the files the ticket lists.
 5. Where a dependency from another workstream isn't merged yet, code against the **contract stub**
    and use a monkeypatched stand-in in tests. Tickets say where this applies.
-6. Open a PR titled `T-<nnn>: <title>`. It's **Done** when every acceptance-criteria box is ticked
-   and the PR is merged. Update the tracker in the same PR.
+6. Commit straight to `master` with a message starting `T-<nnn>: <title>`. Run `uv run pytest`,
+   then `git pull --rebase`, then push. It's **Done** when every acceptance-criteria box is ticked
+   and pushed. Set the tracker status in the same commit.
 
 **Legend:** ⚑ = needs input or action from the project owner. **S** = up to 1 day, **M** = 1–3 days.
 
@@ -296,12 +297,12 @@ These need the project owner rather than an engineer. Kick them off early:
 
 ## Tracker
 
-The single source of truth for who's doing what. Statuses: `Todo` → `In progress` → `In review` → `Done`.
+The single source of truth for who's doing what. Statuses: `Todo` → `In progress` → `Done`.
 
 | Ticket | Title | WS | Size | Depends on | Owner | Status |
 |---|---|---|---|---|---|---|
-| [T-001](T-001-project-scaffold.md) | Project scaffold | 0 | S | — | oknott14 | In review |
-| [T-002](T-002-ports-and-models.md) | Chat ports & ORM models | 0 | S | T-001 | | Todo |
+| [T-001](T-001-project-scaffold.md) | Project scaffold | 0 | S | — | oknott14 | Done |
+| [T-002](T-002-ports-and-models.md) | Chat ports & ORM models | 0 | S | T-001 | oknott14 | Done |
 | [T-003](T-003-game-config-schema.md) | Game config schema & parser types | 0 | S | T-001 | | Todo |
 | [T-004](T-004-boards-contracts.md) | Boards engine contracts & plugin decorators | 0 | M | T-001 | | Todo |
 | [T-005](T-005-remaining-stubs.md) | Remaining module stubs | 0 | S | T-002, T-003, T-004 | | Todo |

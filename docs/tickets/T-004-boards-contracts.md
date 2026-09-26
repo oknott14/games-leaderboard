@@ -41,4 +41,4 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 - [ ] The decorators register a function and reject a duplicate name.
 - [ ] All four `ComponentRef` input forms normalise as specified.
 - [ ] The starter `boards.yaml` from `03-boards-engine.md` §5.8 validates as a `BoardsFile` (schema only, no reference checks).
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`

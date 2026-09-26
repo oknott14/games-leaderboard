@@ -3,7 +3,7 @@
 ## 1. Goal
 
 Create the project skeleton and every **shared type and signature** as real Python code, with stub
-bodies. After this PR merges, workstreams A–E and G can build in parallel against these stubs,
+bodies. Once this lands on `master`, workstreams A–E and G can build in parallel against these stubs,
 using the test fakes defined here, without waiting on each other.
 
 This doc is the source of truth for the interfaces. **The code stubs must match it exactly.**

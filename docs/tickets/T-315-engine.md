@@ -35,7 +35,7 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 - [ ] Direction precedence: the board beats the aggregator, which beats the value.
 - [ ] `fetch` runs the same pipeline for another range.
 - [ ] All standings are returned (no truncation).
-- [ ] `uv run pytest` passes; PR reviewed and merged
+- [ ] `uv run pytest` passes; committed and pushed to `master`
 
 ## Notes
 

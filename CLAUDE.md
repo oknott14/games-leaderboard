@@ -9,7 +9,7 @@ A Slack bot that reads a private channel of daily web-game results (MapTap, Time
 2. Work is done by ticket: read your ticket in `docs/tickets/` (the overview there has the order
    and dependencies), its "Read first" links, and `docs/plan/00-contracts.md`.
 3. Only edit the files your ticket lists. Signatures, dataclass fields and schema fields in
-   `00-contracts.md` are shared contracts. Change them only in a dedicated PR that updates both
+   `00-contracts.md` are shared contracts. Change them only in a dedicated commit that updates both
    the doc and the stubs.
 4. Record lasting decisions in `docs/plan/decisions.md`.
 
