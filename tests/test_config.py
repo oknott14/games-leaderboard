@@ -277,3 +277,37 @@ def test_higher_is_better_for() -> None:
 def test_reduce_rounds(reducer: str, expected: float) -> None:
     assert reduce_rounds(reducer, (1.0, 2.0, 3.0)) == expected  # type: ignore[arg-type]
     assert reduce_rounds(reducer, ()) is None  # type: ignore[arg-type]
+
+
+# ── code review regressions ──
+
+
+@pytest.mark.parametrize("raw", ["inf", "-inf", "nan", "infinity", "1e400"])
+def test_parse_number_rejects_non_finite(raw: str) -> None:
+    assert parse_number(raw, NumberSpec(type="float")) is None
+
+
+def test_parse_number_none_is_none() -> None:
+    assert parse_number(None, NumberSpec()) is None
+
+
+def test_duplicate_game_name_across_files(tmp_path: Path) -> None:
+    write(tmp_path, "foo.yaml", "detect: a\nscore: { pattern: '(?P<value>\\d+)' }\n")
+    second = write(tmp_path, "foo.yml", "detect: b\nscore: { pattern: '(?P<value>\\d+)' }\n")
+    with pytest.raises(ValueError, match=rf"^{re.escape(str(second))}: game 'foo' is already defined in .*foo\.yaml"):
+        load_games(tmp_path)
+
+
+def test_explicit_name_colliding_with_another_files_stem(tmp_path: Path) -> None:
+    write(tmp_path, "foo.yaml", "detect: a\nscore: { pattern: '(?P<value>\\d+)' }\n")
+    write(tmp_path, "zzz.yaml", "name: foo\ndetect: z\nscore: { pattern: '(?P<value>\\d+)' }\n")
+    with pytest.raises(ValueError, match="game 'foo' is already defined"):
+        load_games(tmp_path)
+
+
+def test_compiled_patterns_follow_field_changes() -> None:
+    g = game(detect="old")
+    assert g.detect_re is not None and g.detect_re.pattern == "old"
+    g2 = g.model_copy(update={"detect": "new"})
+    assert g2.detect_re is not None and g2.detect_re.pattern == "new"
+    assert g.detect_re.pattern == "old"

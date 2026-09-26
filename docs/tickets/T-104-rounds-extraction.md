@@ -33,3 +33,7 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 - [x] Krillion tiles (`🏮🌟🐟🏮🏮🦑🦑`, and the same as `:izakaya_lantern::star2:…`) give `(85, 100, 30, 85, 85, 60, 60)` via `map`.
 - [x] `check_sum`: a mismatched total logs a warning (`caplog`), a matching one logs nothing, and the posted score is kept either way.
 - [x] `uv run pytest` passes; committed and pushed to `master`
+
+## Notes
+
+- Also added `reduce_rounds` to `src/leaderboard/config.py` (outside this ticket's file list), so T-105's derived values share the same reducers. Flagged in the review after T-105.

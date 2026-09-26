@@ -7,7 +7,8 @@ See docs/plan/01-parsing.md for the extraction rules.
 from __future__ import annotations
 
 import re
-from functools import cached_property
+import math
+from functools import lru_cache
 from pathlib import Path
 from typing import Literal, Self
 
@@ -21,6 +22,11 @@ DuplicatePolicy = Literal["first", "best", "last"]
 SLUG = r"^[a-z0-9_]+$"
 _SLUG = re.compile(SLUG)
 _PLUGIN_REF = re.compile(r"^[A-Za-z_][\w.]*:[A-Za-z_]\w*$")  # module.path:function
+
+
+@lru_cache(maxsize=512)
+def _compiled(pattern: str, flags: re.RegexFlag) -> re.Pattern[str]:
+    return re.compile(pattern, flags)
 
 
 class NumberSpec(BaseModel):
@@ -84,13 +90,14 @@ class GameConfig(BaseModel):
                 raise ValueError("a game needs either `parser`, or both `detect` and `score`")
             self._check_patterns()
 
-        for name, spec in self.values.items():
+        for name in self.values:
             if name == "score":
                 raise ValueError("values: 'score' is reserved (it is always available)")
             if not _SLUG.match(name):
                 raise ValueError(f"values: name {name!r} must match {SLUG}")
-            if self.rounds is None and self.parser is None:
-                raise ValueError(f"values.{name}.from_rounds: requires a `rounds` section")
+        if self.values and self.rounds is None and self.parser is None:
+            first = next(iter(self.values))
+            raise ValueError(f"values.{first}.from_rounds: requires a `rounds` section")
         return self
 
     def _check_patterns(self) -> None:
@@ -116,7 +123,7 @@ class GameConfig(BaseModel):
 
     def _compile(self, field: str, pattern: str) -> re.Pattern[str]:
         try:
-            return re.compile(pattern, self.re_flags)
+            return _compiled(pattern, self.re_flags)
         except re.error as exc:
             raise ValueError(f"{field}: invalid regex: {exc}") from None
 
@@ -131,28 +138,31 @@ class GameConfig(BaseModel):
             flags |= re.RegexFlag[name]
         return flags
 
-    # Compiled patterns, for the parser. Validation guarantees they compile.
+    # Compiled patterns, for the parser. Looked up by (pattern, flags) on every access, so they
+    # always match the current field values; validation guarantees they compile.
 
-    @cached_property
+    def _pattern(self, pattern: str | None) -> re.Pattern[str] | None:
+        return _compiled(pattern, self.re_flags) if pattern is not None else None
+
+    @property
     def detect_re(self) -> re.Pattern[str] | None:
-        return re.compile(self.detect, self.re_flags) if self.detect is not None else None
+        return self._pattern(self.detect)
 
-    @cached_property
+    @property
     def score_re(self) -> re.Pattern[str] | None:
-        pattern = self.score.pattern if self.score is not None else None
-        return re.compile(pattern, self.re_flags) if pattern is not None else None
+        return self._pattern(self.score.pattern if self.score is not None else None)
 
-    @cached_property
+    @property
     def puzzle_re(self) -> re.Pattern[str] | None:
-        return re.compile(self.puzzle.pattern, self.re_flags) if self.puzzle is not None else None
+        return self._pattern(self.puzzle.pattern if self.puzzle is not None else None)
 
-    @cached_property
+    @property
     def block_re(self) -> re.Pattern[str] | None:
-        return re.compile(self.rounds.block, self.re_flags) if self.rounds is not None else None
+        return self._pattern(self.rounds.block if self.rounds is not None else None)
 
-    @cached_property
+    @property
     def item_re(self) -> re.Pattern[str] | None:
-        return re.compile(self.rounds.item, self.re_flags) if self.rounds is not None else None
+        return self._pattern(self.rounds.item if self.rounds is not None else None)
 
     @property
     def label(self) -> str:
@@ -195,19 +205,23 @@ def reduce_rounds(reducer: Reducer, rounds: tuple[float, ...]) -> float | None:
             return float(min(rounds))
 
 
-def parse_number(raw: str, spec: NumberSpec) -> float | None:
+def parse_number(raw: str | None, spec: NumberSpec) -> float | None:
     """Convert a captured string to a number: apply `spec.map`, strip separators, convert.
 
-    Returns `None` when the value can't be parsed.
+    Returns `None` when the value is missing (an optional group that didn't match), can't be
+    parsed, or isn't finite (`inf`, `nan`, overflow).
     """
+    if raw is None:
+        return None
     raw = raw.strip()
     if raw in spec.map:
         return float(spec.map[raw])
     cleaned = re.sub(r"[,_\s]", "", raw)
     try:
-        return float(int(cleaned)) if spec.type == "int" else float(cleaned)
-    except ValueError:
+        value = float(int(cleaned)) if spec.type == "int" else float(cleaned)
+    except (ValueError, OverflowError):
         return None
+    return value if math.isfinite(value) else None
 
 
 def load_games(directory: Path) -> dict[str, GameConfig]:
@@ -232,6 +246,8 @@ def load_games(directory: Path) -> dict[str, GameConfig]:
             raise ValueError(f"{path}: {exc}") from exc
         if not game.enabled:
             continue
+        if game.name in games:
+            raise ValueError(f"{path}: game {game.name!r} is already defined in {owners[game.name][1]}")
 
         tokens = {game.name, *game.aliases, *([game.display_name] if game.display_name else [])}
         for token in sorted(tokens):

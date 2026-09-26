@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, TypeAlias
@@ -51,14 +52,11 @@ def _parse_game(text: str, game: GameConfig) -> ParsedResult | None:
         log.warning("%s: detected, but no score could be read from %r", game.name, text[:80])
         return None
 
-    if game.rounds is not None and game.rounds.check_sum and rounds and sum(rounds) != score:
-        log.warning(
-            "%s: rounds %s add up to %s, not the posted score %s (unmapped or mis-mapped round?) in %r",
-            game.name, list(rounds), sum(rounds), score, text[:80],
-        )
+    if game.rounds is not None and game.rounds.check_sum:
+        _check_sum(text, game, score, rounds)
 
     puzzle = None
-    if game.puzzle_re is not None and (match := game.puzzle_re.search(text)):
+    if game.puzzle_re is not None and (match := game.puzzle_re.search(text)) and match["value"]:
         puzzle = match["value"].strip()
     return ParsedResult(game=game.name, score=score, rounds=rounds, puzzle=puzzle)
 
@@ -72,12 +70,25 @@ def _extract_score(text: str, game: GameConfig, rounds: tuple[float, ...]) -> fl
     return parse_number(match["value"], game.score) if match else None
 
 
+def _check_sum(text: str, game: GameConfig, score: float, rounds: tuple[float, ...]) -> None:
+    """Warn when the rounds don't add up to the posted score, including when none were found."""
+    if not rounds:
+        log.warning("%s: check_sum: no rounds found (layout changed or tiles unmatched?) in %r",
+                    game.name, text[:80])
+    elif not math.isclose(sum(rounds), score, rel_tol=1e-9, abs_tol=1e-9):
+        log.warning(
+            "%s: rounds %s add up to %s, not the posted score %s (unmapped or mis-mapped round?) in %r",
+            game.name, list(rounds), sum(rounds), score, text[:80],
+        )
+
+
 def _extract_rounds(text: str, game: GameConfig) -> tuple[float, ...]:
     """Find the rounds block, then every item inside it (and only inside it)."""
-    if game.rounds is None or game.block_re is None or game.item_re is None:
+    if game.rounds is None:
         return ()
+    assert game.block_re is not None and game.item_re is not None
     block = game.block_re.search(text)
-    if not block:
+    if not block or block["block"] is None:
         return ()
     rounds = []
     for item in game.item_re.findall(block["block"]):  # the single group, or the whole match

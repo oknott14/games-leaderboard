@@ -191,3 +191,39 @@ def test_check_sum_match_is_silent(caplog: pytest.LogCaptureFixture) -> None:
 def test_no_rounds_block_gives_empty_rounds() -> None:
     assert only(SAMPLES["timeguessr_basic"]).rounds == ()
     assert only("Krillion #72 🦐\n505").rounds == ()
+
+
+# ── code review regressions ──
+
+
+def test_optional_value_group_that_didnt_match_skips_game(caplog: pytest.LogCaptureFixture) -> None:
+    game = GameConfig(name="h", detect="H", score={"pattern": r"H (?P<value>\d+)?"},
+                      puzzle={"pattern": r"#(?P<value>\d+)?"})
+    with caplog.at_level(logging.WARNING):
+        results = parse_message("H nothing #", [game, GAMES["krillion"]])
+    assert results == []  # no crash; other games still parsed (none match here)
+    assert "h: detected, but no score" in caplog.text
+
+
+def test_optional_puzzle_group_that_didnt_match_gives_no_puzzle() -> None:
+    game = GameConfig(name="h", detect="H", score={"pattern": r"H (?P<value>\d+)"},
+                      puzzle={"pattern": r"#(?P<value>\d+)?"})
+    (result,) = parse_message("H 5 #", [game])
+    assert (result.score, result.puzzle) == (5.0, None)
+
+
+def test_check_sum_tolerates_float_rounding(caplog: pytest.LogCaptureFixture) -> None:
+    game = GameConfig.model_validate({
+        "name": "f", "detect": "F", "score": {"pattern": r"= (?P<value>[\d.]+)", "type": "float"},
+        "rounds": {"block": r"F (?P<block>[^=]+)", "item": r"[\d.]+", "type": "float", "check_sum": True},
+    })
+    with caplog.at_level(logging.WARNING):
+        (result,) = parse_message("F 0.1 0.2 = 0.3", [game])
+    assert result.score == 0.3 and caplog.records == []
+
+
+def test_check_sum_warns_when_no_rounds_found(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.WARNING):
+        result = only("Krillion #72 :shrimp:\n505\n\n:new_tile::other_tile:")
+    assert (result.score, result.rounds) == (505.0, ())
+    assert "check_sum: no rounds found" in caplog.text
