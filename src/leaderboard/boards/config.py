@@ -136,7 +136,47 @@ def load_boards(path: Path, games: Mapping[str, GameConfig]) -> BoardsFile:
             _check_schedule_entry(entry, parsed.boards)
         except ValueError as exc:
             raise ValueError(f"{path.name}: schedule[{i}]: {exc}") from None
+    try:
+        check_token_collisions(parsed.boards, games)
+    except ValueError as exc:
+        raise ValueError(f"{path.name}: {exc}") from None
     return parsed
+
+
+def check_token_collisions(boards: Mapping[str, BoardConfig], games: Mapping[str, GameConfig]) -> None:
+    """Every word a chat command can contain must mean one thing, so commands parse unambiguously.
+
+    Board names, game names/aliases/display names, value names, aggregator and window names,
+    anchor words and reserved command words must be distinct (case-insensitive). The same value
+    name in several games is fine: it means the same thing.
+    """
+    from leaderboard.boards.registry import AGGREGATORS, WINDOWS  # (circular)
+    from leaderboard.commands import ANCHOR_WORDS, RESERVED_WORDS
+
+    owners: dict[str, str] = {}
+
+    def claim(token: str, owner: str) -> None:
+        key = token.lower()
+        if key in owners and owners[key] != owner:
+            raise ValueError(f"name collision: {token!r} is both {owners[key]} and {owner}")
+        owners[key] = owner
+
+    for word in RESERVED_WORDS:
+        claim(word, "a reserved command word")
+    for word in ANCHOR_WORDS:
+        claim(word, "an anchor word")
+    for name in WINDOWS:
+        claim(name, f"window {name!r}")
+    for name in AGGREGATORS:
+        claim(name, f"aggregator {name!r}")
+    for game in games.values():
+        for token in {game.name, *game.aliases, *([game.display_name] if game.display_name else [])}:
+            claim(token, f"game {game.name!r}")
+    for game in games.values():
+        for value in game.value_names():
+            claim(value, f"value {value!r}")
+    for name in boards:
+        claim(name, f"board {name!r}")
 
 
 def _check_board(board: BoardConfig, games: Mapping[str, GameConfig]) -> None:

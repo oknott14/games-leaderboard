@@ -331,7 +331,7 @@ The single source of truth for who's doing what. Statuses: `Todo` → `In progre
 | [T-315](T-315-engine.md) | Board engine: run_board, applies, range, unit | C2 | M | T-311 | oknott14 | Done |
 | [T-321](T-321-registry-loading.md) | Built-in & plugin loading, params validation | C3 | S | T-006 | oknott14 | Done |
 | [T-322](T-322-load-boards.md) | boards.yaml loader & reference validation | C3 | M | T-321 | oknott14 | Done |
-| [T-323](T-323-token-collisions.md) | Command token collision check | C3 | S | T-322 | | Todo |
+| [T-323](T-323-token-collisions.md) | Command token collision check | C3 | S | T-322 | oknott14 | Done |
 | [T-324](T-324-starter-boards-and-plugin.md) | Starter boards.yaml & example plugin ⚑ | C3 | S | T-322, T-323, T-301, T-303, T-312, T-313, T-314 | | Todo |
 | [T-401](T-401-resolve-anchor.md) | Anchor resolution | D | S | T-006 | | Todo |
 | [T-402](T-402-parse-saved-boards.md) | Command parsing: saved boards, anchors, games, shortcuts | D | M | T-401 | | Todo |
