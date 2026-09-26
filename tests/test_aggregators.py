@@ -92,14 +92,14 @@ def test_stddev_needs_two_entries(entries: list[Entry]) -> None:
     [
         ([22, 23, 24], 3.0),          # ends on the anchor
         ([21, 22, 23], 3.0),          # ends yesterday: still alive
-        ([20, 21, 22], 0.0),          # ended two days ago: broken
+        ([20, 21, 22], None),         # ended two days ago: broken, dropped from the board
         ([18, 19, 21, 22, 23, 24], 4.0),  # a gap resets it
         ([24, 24, 23], 2.0),          # two results on one day count once
         ([24], 1.0),
-        ([], 0.0),
+        ([], None),
     ],
 )
-def test_streak(days: list[int], expected: float) -> None:
+def test_streak(days: list[int], expected: float | None) -> None:
     assert agg("streak", [entry(d, 1) for d in days]) == expected
 
 
@@ -125,3 +125,8 @@ def test_top_k_avg_respects_direction_and_k() -> None:
 def test_top_k_avg_rejects_bad_k() -> None:
     with pytest.raises(ValidationError):
         AGGREGATORS["top_k_avg"].params.model_validate({"k": 0})  # type: ignore[union-attr]
+
+
+def test_top_k_avg_without_params_is_a_clear_error() -> None:
+    with pytest.raises(TypeError, match="top_k_avg needs TopKParams"):
+        AGGREGATORS["top_k_avg"].fn(ENTRIES, AggContext(True, ANCHOR, None))

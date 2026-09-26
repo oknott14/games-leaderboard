@@ -12,6 +12,7 @@ from leaderboard.boards.registry import BOARD_TYPES
 
 ANCHOR = date(2026, 9, 24)
 GAME = sample_games()["krillion"]
+LOWER_GAME = GAME.model_copy(update={"higher_is_better": False})
 
 
 def entry(player: str, day: int, value: float, hour: int = 12) -> Entry:
@@ -29,9 +30,10 @@ def context(
     higher: bool = True,
     rng: DateRange = DateRange(date(2026, 9, 21), ANCHOR),
     fetch: Callable[[DateRange], list[Entry]] = lambda r: [],
+    game: Any = GAME,
     **board: Any,
 ) -> BoardContext:
-    return BoardContext(game=GAME, board=make_board(**board), value_name="score", higher_is_better=higher,
+    return BoardContext(game=game, board=make_board(**board), value_name="score", higher_is_better=higher,
                         anchor=ANCHOR, range=rng, entries=entries, params=None, aggregate=aggregate, fetch=fetch)
 
 
@@ -96,7 +98,7 @@ def test_daily_wins_ties_all_win() -> None:
 
 def test_daily_wins_lower_is_better_picks_minimum() -> None:
     entries = [entry("a", 21, 3), entry("b", 21, 5)]
-    assert run("daily_wins", context(entries, higher=False))[0][:2] == ("a", 1.0)
+    assert run("daily_wins", context(entries, game=LOWER_GAME))[0][:2] == ("a", 1.0)
 
 
 def test_daily_wins_min_entries_is_days_played() -> None:
@@ -106,5 +108,19 @@ def test_daily_wins_min_entries_is_days_played() -> None:
 
 def test_daily_wins_ranks_by_wins_even_for_lower_is_better_games() -> None:
     entries = [entry("a", 21, 1), entry("a", 22, 1), entry("b", 21, 9), entry("b", 22, 9)]
-    assert [p for p, *_ in run("daily_wins", context(entries, higher=False))] == ["a", "b"]
+    assert [p for p, *_ in run("daily_wins", context(entries, game=LOWER_GAME))] == ["a", "b"]
     assert BOARD_TYPES["daily_wins"].unit == "wins"
+
+
+# ── code review regressions (round 3) ──
+
+
+def test_daily_wins_uses_the_values_direction_not_the_boards() -> None:
+    entries = [entry("a", 21, 3), entry("b", 21, 5)]
+    ctx = context(entries, higher=True, game=LOWER_GAME)  # the board forces higher-is-better ranking
+    assert run("daily_wins", ctx)[0][:2] == ("a", 1.0)  # 3 is the day's best score
+
+
+def test_daily_wins_float_ties_all_win() -> None:
+    entries = [entry("a", 21, 0.1 + 0.2), entry("b", 21, 0.3)]
+    assert [v for _, v, *_ in run("daily_wins", context(entries))] == [1.0, 1.0]

@@ -5,6 +5,7 @@ Everything here is pure data or pure functions: no database, chat or formatting.
 
 from __future__ import annotations
 
+import math
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -84,6 +85,24 @@ class BoardContext:
     fetch: Callable[[DateRange], list[Entry]]  # the same pipeline for another range
 
 
+def chronological_key(item: Entry | ResultRow) -> tuple[date, datetime]:
+    """The one ordering rule for "earlier/later": played date, then post time."""
+    return (item.played_on, item.posted_at)
+
+
+def group_by_player(entries: list[Entry]) -> dict[PlayerKey, list[Entry]]:
+    """Entries grouped per player, preserving input order within each group."""
+    grouped: dict[PlayerKey, list[Entry]] = defaultdict(list)
+    for entry in entries:
+        grouped[entry.player].append(entry)
+    return grouped
+
+
+def same_value(a: float, b: float) -> bool:
+    """Equality for aggregated floats (sums/averages computed in different orders)."""
+    return math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-9)
+
+
 def dedupe_daily(rows: list[ResultRow], policy: DuplicatePolicy, higher_is_better: bool) -> list[ResultRow]:
     """Keep one row per (player, played_on) according to the game's duplicate policy.
 
@@ -103,7 +122,7 @@ def dedupe_daily(rows: list[ResultRow], policy: DuplicatePolicy, higher_is_bette
         sign = -1 if higher_is_better else 1
         return min(by_time, key=lambda r: sign * r.score)  # min() keeps the earliest on ties
 
-    return sorted((pick(g) for g in groups.values()), key=lambda r: (r.played_on, r.posted_at))
+    return sorted((pick(g) for g in groups.values()), key=chronological_key)
 
 
 def rank(scored: list[tuple[PlayerKey, float, int, str | None]], higher_is_better: bool) -> list[Standing]:
@@ -115,6 +134,6 @@ def rank(scored: list[tuple[PlayerKey, float, int, str | None]], higher_is_bette
     ordered = sorted(scored, key=lambda s: (sign * s[1], s[0]))
     standings: list[Standing] = []
     for position, (player, value, entries, detail) in enumerate(ordered, 1):
-        tied = standings and standings[-1].value == value
+        tied = standings and same_value(standings[-1].value, value)
         standings.append(Standing(player, value, entries, standings[-1].rank if tied else position, detail))
     return standings

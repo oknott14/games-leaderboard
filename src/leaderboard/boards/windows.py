@@ -6,13 +6,12 @@ anchoring at last Sunday gives all of last week.
 
 from __future__ import annotations
 
-from collections import defaultdict
 from datetime import date, timedelta
 from functools import partial
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from leaderboard.boards.core import DateRange, Entry, PlayerKey, WindowResult
+from leaderboard.boards.core import DateRange, Entry, WindowResult, chronological_key, group_by_player
 from leaderboard.boards.registry import window
 
 
@@ -59,12 +58,9 @@ def last_n(anchor: date, params: CountParams) -> WindowResult:
 
 def _latest_per_player(entries: list[Entry], n: int) -> list[Entry]:
     """Keep each player's `n` most recent entries, preserving chronological order."""
-    by_player: dict[PlayerKey, list[Entry]] = defaultdict(list)
-    for entry in entries:
-        by_player[entry.player].append(entry)
     kept = {
         id(e)
-        for player_entries in by_player.values()
-        for e in sorted(player_entries, key=lambda e: (e.played_on, e.posted_at))[-n:]
+        for player_entries in group_by_player(entries).values()
+        for e in sorted(player_entries, key=chronological_key)[-n:]
     }
     return [e for e in entries if id(e) in kept]

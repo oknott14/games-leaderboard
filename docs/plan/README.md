@@ -106,7 +106,9 @@ ticket). There are no branches or PRs: each ticket lands as commits directly on 
 2. **Contracts are shared.** Signatures, dataclass fields and Pydantic schema fields in
    [00-contracts.md](00-contracts.md) are shared. Workstream 0 creates them as stubs whose function
    bodies raise `NotImplementedError`. The workstream named next to each stub fills in the **body**
-   without changing the signature.
+   without changing the signature. Filling in a body also covers the small edits that come with
+   it, even in files the ticket doesn't list: the imports the body needs, private helpers next to
+   it, and removing that function from the "logic is stubbed" assertions in the contract tests.
 3. **Changing a contract** takes its own small commit that updates both `00-contracts.md` and the stub
    code, and it's reviewed by the owners of every workstream that uses it. Don't bundle a contract
    change into a feature commit.

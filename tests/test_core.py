@@ -84,3 +84,8 @@ def test_entries_and_detail_carried_through() -> None:
 @pytest.mark.parametrize("higher", [True, False])
 def test_rank_empty(higher: bool) -> None:
     assert rank([], higher) == []
+
+
+def test_float_rounding_ties_share_a_rank() -> None:
+    scored = [(A, 0.1 + 0.2, 1, None), (B, 0.3, 1, None), (C, 0.2, 1, None)]
+    assert [s.rank for s in rank(scored, True)] == [1, 1, 3]
