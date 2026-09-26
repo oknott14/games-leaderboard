@@ -24,8 +24,8 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] Every row of the table is covered, including across month and year boundaries.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] Every row of the table is covered, including across month and year boundaries.
+- [x] `uv run pytest` passes; committed and pushed to `master`
 
 ## Notes
 

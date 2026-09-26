@@ -6,9 +6,10 @@ See docs/plan/04-commands-formatting.md.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
@@ -17,6 +18,8 @@ if TYPE_CHECKING:
 
 ANCHOR_WORDS: frozenset[str] = frozenset({"today", "yesterday", "lastweek", "lastmonth"})
 RESERVED_WORDS: frozenset[str] = frozenset({"help", "games", "boards"})
+
+_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 @dataclass(frozen=True)
@@ -44,5 +47,22 @@ def parse_command(
 
 
 def resolve_anchor(token: str, today: date) -> date | None:
-    """`today`, `yesterday`, `lastweek`/`last_week`, `lastmonth`/`last_month` or `YYYY-MM-DD`."""
-    raise NotImplementedError  # T-401
+    """Resolve an anchor word or `YYYY-MM-DD` to a date; `None` if `token` isn't an anchor.
+
+    Windows end at the anchor, so "last week" is the previous Sunday (the `week` window then
+    covers that whole Mon–Sun week) and "last month" is the previous month's last day.
+    Accepts both `lastweek` (typed in chat) and `last_week` (boards.yaml schedule anchors).
+    """
+    match token.lower():
+        case "today":
+            return today
+        case "yesterday":
+            return today - timedelta(days=1)
+        case "lastweek" | "last_week":
+            return today - timedelta(days=today.weekday() + 1)
+        case "lastmonth" | "last_month":
+            return today.replace(day=1) - timedelta(days=1)
+    try:
+        return date.fromisoformat(token) if _ISO_DATE.match(token) else None
+    except ValueError:
+        return None
