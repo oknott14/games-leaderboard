@@ -121,7 +121,9 @@ Signature: `(ctx: BoardContext) -> list[Standing]`.
   - Rank higher-is-better. `detail` is `"{days} played"`.
 - **`improvement`** (unit `±`):
   - Requires a bounded range. With `start=None` it raises `ValueError("improvement needs a bounded window")`.
-  - The previous range is the same length, immediately before the current one.
+  - The previous range is the window's own `previous` period (the same weekdays last week, the
+    same days last month, the same span last year), else the same length immediately before.
+  - The previous period is aggregated with its own end date as the anchor (so `streak` works).
   - For each player in both periods: `delta = aggregate(current) − aggregate(previous)`, negated
     when lower is better, so a positive number always means improved.
   - Rank higher-is-better. `detail` is `"{prev} → {cur}"`.

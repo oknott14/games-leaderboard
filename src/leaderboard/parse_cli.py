@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 from typing import TextIO
 
+from leaderboard.boards.registry import add_plugins_path
 from leaderboard.config import GameConfig, load_games
 from leaderboard.parser import ParsedResult, load_plugin_parser, parse_message
 
@@ -27,8 +28,8 @@ def parse_main(argv: list[str] | None = None, *, stdin: TextIO | None = None, ou
     parser.add_argument("--all-games", action="store_true", help="also list games that weren't detected")
     args = parser.parse_args(argv)
 
-    if args.plugins_dir.is_dir() and str(args.plugins_dir) not in sys.path:
-        sys.path.insert(0, str(args.plugins_dir))
+    if args.plugins_dir.is_dir():
+        add_plugins_path(args.plugins_dir)
     try:
         games = load_games(args.games_dir)
         for game in games.values():

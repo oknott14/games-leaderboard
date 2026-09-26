@@ -20,14 +20,14 @@ def entry(player: str, day: int, value: float, hour: int = 12) -> Entry:
     return Entry(("slack", player), date(2026, 9, day), datetime(2026, 9, day, hour), value)
 
 
-def total(entries: list[Entry]) -> float | None:
+def total(entries: list[Entry], anchor: date | None = None) -> float | None:
     return float(sum(e.value for e in entries))
 
 
 def context(
     entries: list[Entry],
     *,
-    aggregate: Callable[[list[Entry]], float | None] = total,
+    aggregate: Callable[..., float | None] = total,
     higher: bool = True,
     rng: DateRange = DateRange(date(2026, 9, 21), ANCHOR),
     fetch: Callable[[DateRange], list[Entry]] = lambda r: [],
@@ -65,7 +65,7 @@ def test_ranked_applies_min_entries() -> None:
 
 def test_ranked_drops_players_whose_aggregate_is_none() -> None:
     entries = [entry("a", 21, 100), entry("b", 21, 300)]
-    only_a = lambda es: None if es[0].player[1] == "b" else total(es)  # noqa: E731
+    only_a = lambda es, anchor=None: None if es[0].player[1] == "b" else total(es)  # noqa: E731
     assert [p for p, *_ in run("ranked", context(entries, aggregate=only_a))] == ["a"]
 
 
@@ -143,7 +143,7 @@ def dated(player: str, d: date, value: float) -> Entry:
     return Entry(("slack", player), d, datetime.combine(d, datetime.min.time()), value)
 
 
-def avg(entries: list[Entry]) -> float | None:
+def avg(entries: list[Entry], anchor: date | None = None) -> float | None:
     return sum(e.value for e in entries) / len(entries) if entries else None
 
 

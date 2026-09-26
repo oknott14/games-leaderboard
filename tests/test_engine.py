@@ -118,3 +118,22 @@ def test_board_range_and_unit() -> None:
 def test_bad_components_are_clear_errors(kw: dict, match: str) -> None:
     with pytest.raises(ValueError, match=match):
         run_board(make_board(**kw), GAMES["krillion"], ANCHOR, loader([]))
+
+
+# ── review round 4 ──
+
+
+def test_improvement_aggregates_the_previous_period_at_its_own_anchor() -> None:
+    # a 3-day streak ending last Sunday vs a 2-day streak ending this Sunday: -1
+    days = ["2026-09-18", "2026-09-19", "2026-09-20", "2026-09-26", "2026-09-27"]
+    rows = make_rows([("a", d, 1) for d in days], game="timeguessr")
+    board = make_board(type="improvement", window="week", aggregate="streak")
+    (standing,) = run_board(board, GAMES["timeguessr"], date(2026, 9, 27), loader(rows))
+    assert (standing.value, standing.detail) == (-1.0, "3 → 2")
+
+
+def test_improvement_compares_the_same_weekdays_last_week() -> None:
+    calls: list[DateRange] = []
+    board = make_board(type="improvement", window="week", aggregate="sum")
+    run_board(board, GAMES["timeguessr"], date(2026, 9, 23), loader([], calls))  # a Wednesday
+    assert calls[1] == DateRange(date(2026, 9, 14), date(2026, 9, 16))  # Mon–Wed last week

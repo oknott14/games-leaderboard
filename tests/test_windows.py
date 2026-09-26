@@ -84,3 +84,28 @@ def test_last_n_with_fewer_entries_keeps_all() -> None:
     assert select is not None
     entries = [entry("a", 20), entry("a", 21)]
     assert select(entries) == entries
+
+
+# ── previous periods (review round 4) ──
+
+
+@pytest.mark.parametrize(
+    ("name", "anchor", "params", "previous"),
+    [
+        ("day", THU, {}, DateRange(date(2026, 9, 23), date(2026, 9, 23))),
+        ("week", date(2026, 9, 23), {}, DateRange(date(2026, 9, 14), date(2026, 9, 16))),  # Mon–Wed last week
+        ("week", SUN, {}, DateRange(date(2026, 9, 14), date(2026, 9, 20))),
+        ("month", date(2026, 3, 31), {}, DateRange(date(2026, 2, 1), date(2026, 2, 28))),  # all of February
+        ("month", date(2026, 3, 15), {}, DateRange(date(2026, 2, 1), date(2026, 2, 15))),
+        ("month", date(2026, 1, 10), {}, DateRange(date(2025, 12, 1), date(2025, 12, 10))),
+        ("year", date(2028, 2, 29), {}, DateRange(date(2027, 1, 1), date(2027, 2, 28))),  # leap day
+        ("rolling_days", THU, {"n": 7}, DateRange(date(2026, 9, 11), date(2026, 9, 17))),
+    ],
+)
+def test_previous_period(name: str, anchor: date, params: dict, previous: DateRange) -> None:
+    assert run(name, anchor, **params).previous == previous
+
+
+@pytest.mark.parametrize(("name", "params"), [("all", {}), ("last_n", {"n": 3})])
+def test_unbounded_windows_have_no_previous(name: str, params: dict) -> None:
+    assert run(name, THU, **params).previous is None

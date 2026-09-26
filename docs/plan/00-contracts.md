@@ -207,6 +207,7 @@ class Standing:
 class WindowResult:
     range: DateRange                     # rows to load
     select: Callable[[list[Entry]], list[Entry]] | None = None   # optional per-player trim (last_n)
+    previous: DateRange | None = None    # comparable earlier period (same weekdays last week, …); None if unbounded
 
 @dataclass(frozen=True)
 class AggContext:
@@ -224,8 +225,10 @@ class BoardContext:
     range: DateRange
     entries: list[Entry]                 # deduped, valued, window-selected; sorted by played_on
     params: BaseModel | None             # board type params
-    aggregate: Callable[[list[Entry]], float | None]    # board's aggregator, bound
+    aggregate: Callable[..., float | None]  # board's aggregator, bound: aggregate(entries, anchor=None);
+                                            # pass anchor= when aggregating another period
     fetch: Callable[[DateRange], list[Entry]]           # same pipeline for another range
+    previous: DateRange | None = None                   # the window's previous period
 
 def dedupe_daily(rows: list[ResultRow], policy: DuplicatePolicy, higher_is_better: bool) -> list[ResultRow]: ...
 def rank(scored: list[tuple[PlayerKey, float, int, str | None]], higher_is_better: bool) -> list[Standing]: ...
@@ -260,7 +263,8 @@ WINDOWS: dict[str, Registered]; AGGREGATORS: dict[str, Registered]; BOARD_TYPES:
 
 def load_builtins() -> None: ...                         # imports windows/aggregators/types modules
 def load_plugins(directory: Path) -> list[str]: ...      # imports *.py, returns registered names
-def validate_params(reg: Registered, raw: dict[str, Any]) -> BaseModel | None: ...
+def validate_params(reg: Registered, raw: dict[str, Any]) -> BaseModel | None: ...  # rejects unknown keys
+def add_plugins_path(directory: Path) -> None: ...       # appends the resolved dir to sys.path (never shadows)
 ```
 
 `boards/__init__.py` re-exports: `window`, `aggregator`, `board_type`, `Entry`, `Standing`,
@@ -276,7 +280,7 @@ class ComponentRef(BaseModel):
     # first param field) | {name: top_k_avg, k: 3}. A before-validator normalises these.
 
 class BoardConfig(BaseModel):
-    name: str
+    name: str                            # slug ^[a-z0-9_]+$ (a chat command word)
     title: str | None = None
     type: ComponentRef = ComponentRef(name="ranked")
     value: str = "score"
@@ -331,7 +335,7 @@ The service (B) supplies `load_rows`. The engine never touches the DB.
 
 ```python
 # Constants (complete in WS0). The C3 collision check uses them too.
-ANCHOR_WORDS: frozenset[str] = frozenset({"today", "yesterday", "lastweek", "lastmonth"})
+ANCHOR_WORDS: frozenset[str] = frozenset({"today", "yesterday", "lastweek", "last_week", "lastmonth", "last_month"})
 RESERVED_WORDS: frozenset[str] = frozenset({"help", "games", "boards"})
 
 @dataclass(frozen=True)

@@ -62,3 +62,10 @@ def test_plugin_runs_through_the_engine(aggregate: object, expected: float) -> N
     (standing,) = run_board(board, sample_games()["timeguessr"], date(2026, 9, 24),
                             lambda rng: [r for r in rows if r.played_on <= rng.end])
     assert standing.value == expected
+
+
+def test_example_plugin_rejects_misspelled_params(tmp_path: Path) -> None:
+    path = tmp_path / "boards.yaml"
+    path.write_text("boards:\n  top3: { aggregate: { top3_avg: { n: 5 } } }\n")
+    with pytest.raises(ValueError, match="unknown parameter"):
+        load_boards(path, sample_games())

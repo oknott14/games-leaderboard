@@ -103,18 +103,31 @@ def load_plugins(directory: Path) -> list[str]:
     """
     if not directory.is_dir():
         return []
-    if str(directory) not in sys.path:
-        sys.path.insert(0, str(directory))
+    add_plugins_path(directory)
 
     before = {id(reg): set(reg) for reg in (WINDOWS, AGGREGATORS, BOARD_TYPES)}
     for path in sorted(directory.glob("*.py")):
         if path.name.startswith("_"):
             continue
         try:
-            importlib.import_module(path.stem)
+            module = importlib.import_module(path.stem)
         except Exception as exc:
             raise RuntimeError(f"plugin {path}: {type(exc).__name__}: {exc}") from exc
+        loaded_from = Path(getattr(module, "__file__", "") or "").resolve()
+        if loaded_from != path.resolve():
+            raise RuntimeError(
+                f"plugin {path}: the name {path.stem!r} is already taken by {loaded_from or 'a built-in module'}; "
+                "rename the plugin file"
+            )
     return [name for reg in (WINDOWS, AGGREGATORS, BOARD_TYPES) for name in reg if name not in before[id(reg)]]
+
+
+def add_plugins_path(directory: Path) -> None:
+    """Make plugin modules importable by name (for plugins and game `parser:` refs). The path is
+    appended, so a plugin can never shadow the standard library or installed packages."""
+    path = str(directory.resolve())
+    if path not in sys.path:
+        sys.path.append(path)
 
 
 def validate_params(reg: Registered, raw: dict[str, Any]) -> BaseModel | None:
@@ -131,6 +144,9 @@ def validate_params(reg: Registered, raw: dict[str, Any]) -> BaseModel | None:
         if first in values:
             raise ValueError(f"{reg.name}: {first!r} given twice")
         values[first] = values.pop(POSITIONAL)
+    unknown = sorted(set(values) - set(reg.params.model_fields))
+    if unknown:
+        raise ValueError(f"{reg.name}: unknown parameter(s) {unknown} (expected: {sorted(reg.params.model_fields)})")
     try:
         return reg.params.model_validate(values)
     except ValidationError as exc:

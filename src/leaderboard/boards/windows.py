@@ -6,6 +6,7 @@ anchoring at last Sunday gives all of last week.
 
 from __future__ import annotations
 
+import calendar
 from datetime import date, timedelta
 from functools import partial
 
@@ -21,24 +22,39 @@ class CountParams(BaseModel):
     n: int = Field(ge=1)
 
 
+def _shifted(rng: DateRange, days: int) -> DateRange:
+    assert rng.start is not None
+    return DateRange(rng.start - timedelta(days=days), rng.end - timedelta(days=days))
+
+
+def _clamped(year: int, month: int, day: int) -> date:
+    """`date(year, month, day)`, clamping the day to the month's length (Mar 31 → Feb 28)."""
+    return date(year, month, min(day, calendar.monthrange(year, month)[1]))
+
+
 @window("day", description="The anchor day only")
 def day(anchor: date, params: None) -> WindowResult:
-    return WindowResult(DateRange(anchor, anchor))
+    rng = DateRange(anchor, anchor)
+    return WindowResult(rng, previous=_shifted(rng, 1))
 
 
 @window("week", description="Monday through the anchor day")
 def week(anchor: date, params: None) -> WindowResult:
-    return WindowResult(DateRange(anchor - timedelta(days=anchor.weekday()), anchor))
+    rng = DateRange(anchor - timedelta(days=anchor.weekday()), anchor)
+    return WindowResult(rng, previous=_shifted(rng, 7))  # the same weekdays last week
 
 
 @window("month", description="The 1st of the anchor's month through the anchor day")
 def month(anchor: date, params: None) -> WindowResult:
-    return WindowResult(DateRange(anchor.replace(day=1), anchor))
+    last_month_end = anchor.replace(day=1) - timedelta(days=1)
+    previous = DateRange(last_month_end.replace(day=1), _clamped(last_month_end.year, last_month_end.month, anchor.day))
+    return WindowResult(DateRange(anchor.replace(day=1), anchor), previous=previous)
 
 
 @window("year", description="January 1st through the anchor day")
 def year(anchor: date, params: None) -> WindowResult:
-    return WindowResult(DateRange(anchor.replace(month=1, day=1), anchor))
+    previous = DateRange(date(anchor.year - 1, 1, 1), _clamped(anchor.year - 1, anchor.month, anchor.day))
+    return WindowResult(DateRange(anchor.replace(month=1, day=1), anchor), previous=previous)
 
 
 @window("all", description="All time up to the anchor day")
@@ -48,7 +64,8 @@ def all_time(anchor: date, params: None) -> WindowResult:
 
 @window("rolling_days", params=CountParams, description="The last n days, ending on the anchor day")
 def rolling_days(anchor: date, params: CountParams) -> WindowResult:
-    return WindowResult(DateRange(anchor - timedelta(days=params.n - 1), anchor))
+    rng = DateRange(anchor - timedelta(days=params.n - 1), anchor)
+    return WindowResult(rng, previous=_shifted(rng, params.n))
 
 
 @window("last_n", params=CountParams, description="Each player's n most recent results up to the anchor day")

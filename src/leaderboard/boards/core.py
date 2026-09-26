@@ -62,6 +62,7 @@ class Standing:
 class WindowResult:
     range: DateRange  # rows to load
     select: Callable[[list[Entry]], list[Entry]] | None = None  # optional per-player trim
+    previous: DateRange | None = None  # the comparable earlier period (None: not comparable)
 
 
 @dataclass(frozen=True)
@@ -81,8 +82,11 @@ class BoardContext:
     range: DateRange
     entries: list[Entry]  # deduped, valued, window-selected; sorted by played_on
     params: BaseModel | None  # board type params
-    aggregate: Callable[[list[Entry]], float | None]  # the board's aggregator, bound
+    # The board's aggregator, bound: aggregate(entries, anchor=None). Pass `anchor` when
+    # aggregating another period (anchor-relative aggregators like streak need it).
+    aggregate: Callable[..., float | None]
     fetch: Callable[[DateRange], list[Entry]]  # the same pipeline for another range
+    previous: DateRange | None = None  # the window's comparable earlier period, if any
 
 
 def chronological_key(item: Entry | ResultRow) -> tuple[date, datetime]:

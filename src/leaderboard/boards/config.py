@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
+from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -59,7 +60,7 @@ class ComponentRef(BaseModel):
 class BoardConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: str
+    name: str = Field(pattern=r"^[a-z0-9_]+$")  # a chat command word
     title: str | None = None
     type: ComponentRef = ComponentRef(name="ranked")
     value: str = "score"
@@ -120,6 +121,9 @@ def load_boards(path: Path, games: Mapping[str, GameConfig]) -> BoardsFile:
     boards = raw.get("boards") or {}
     if not isinstance(defaults, dict) or not isinstance(boards, dict):
         raise ValueError(f"{path.name}: `defaults` and `boards` must be mappings")
+    bad = [name for name, body in boards.items() if body is not None and not isinstance(body, dict)]
+    if bad:
+        raise ValueError(f"{path.name}: board {bad[0]!r}: expected a mapping of options, got {boards[bad[0]]!r}")
     merged = {name: defaults | (body or {}) for name, body in boards.items()}
     try:
         parsed = BoardsFile.model_validate(raw | {"boards": merged})
@@ -197,6 +201,16 @@ def _check_board(board: BoardConfig, games: Mapping[str, GameConfig]) -> None:
             raise ValueError(f"value {board.value!r} isn't defined by {missing}")
     elif not any(board.value in game.value_names() for game in games.values()):
         raise ValueError(f"no game defines the value {board.value!r}")
+
+    # Dry run with no data: catches combinations that only fail when run (e.g. `improvement`
+    # over an unbounded window), for built-in and plugin board types alike.
+    from leaderboard.boards.engine import board_applies, run_board  # (circular)
+
+    game = next(g for g in games.values() if board_applies(board, g))
+    try:
+        run_board(board, game, date.today(), lambda date_range: [])
+    except Exception as exc:
+        raise ValueError(f"can't run: {exc}") from None
 
 
 def _check_schedule_entry(entry: ScheduleEntry, boards: Mapping[str, BoardConfig]) -> None:

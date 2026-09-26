@@ -17,7 +17,6 @@ from leaderboard.boards.core import (
     Entry,
     ResultRow,
     Standing,
-    chronological_key,
     dedupe_daily,
 )
 from leaderboard.boards.registry import AGGREGATORS, BOARD_TYPES, WINDOWS, Registered, validate_params
@@ -85,13 +84,18 @@ def run_board(
 
     def entries_for(date_range: DateRange) -> list[Entry]:
         rows = dedupe_daily(load_rows(date_range), game.duplicates, score_higher)
-        entries = [
+        entries = [  # dedupe_daily returns rows chronologically, so entries are too
             Entry(row.player, row.played_on, row.posted_at, value)
             for row in rows
             if (value := game.value(board.value, row.score, row.rounds)) is not None
         ]
-        entries.sort(key=chronological_key)
         return window.select(entries) if window.select else entries
+
+    board_anchor = anchor
+
+    def aggregate(entries: list[Entry], anchor: date | None = None) -> float | None:
+        """The board's aggregator; `anchor` overrides the board's for another period."""
+        return agg.fn(entries, AggContext(value_higher, anchor or board_anchor, agg_params))
 
     ctx = BoardContext(
         game=game,
@@ -102,8 +106,9 @@ def run_board(
         range=window.range,
         entries=entries_for(window.range),
         params=type_params,
-        aggregate=lambda entries: agg.fn(entries, AggContext(value_higher, anchor, agg_params)),
+        aggregate=aggregate,
         fetch=entries_for,
+        previous=window.previous,
     )
     return btype.fn(ctx)
 

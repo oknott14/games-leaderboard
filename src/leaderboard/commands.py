@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from leaderboard.boards.config import BoardConfig
     from leaderboard.config import GameConfig
 
-ANCHOR_WORDS: frozenset[str] = frozenset({"today", "yesterday", "lastweek", "lastmonth"})
+ANCHOR_WORDS: frozenset[str] = frozenset({"today", "yesterday", "lastweek", "last_week", "lastmonth", "last_month"})
 RESERVED_WORDS: frozenset[str] = frozenset({"help", "games", "boards"})
 
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")

@@ -127,3 +127,27 @@ def test_collisions_are_case_insensitive() -> None:
 
 def test_repeated_value_names_across_games_are_fine() -> None:
     check_token_collisions({}, sample_games())  # maptap and krillion both define best_round
+
+
+# ── review round 4 ──
+
+
+@pytest.mark.parametrize(
+    ("body", "match"),
+    [
+        ("boards: { daily: best }", "board 'daily': expected a mapping of options, got 'best'"),
+        ("boards: { d: [a] }", "board 'd': expected a mapping"),
+        ("boards: { bad: { type: improvement, window: all } }", "board 'bad': can't run: improvement needs a bounded window"),
+        ("boards: { bad: { type: improvement, window: { last_n: 3 } } }", "board 'bad': can't run"),
+        ("boards: { last_week: {} }", "'last_week' is both an anchor word and board 'last_week'"),
+        ("boards: { '2026-01-01': {} }", "should match pattern"),
+        ("boards: { Weekly: {} }", "should match pattern"),
+        ("boards: { t: { aggregate: { top_k_avg: { n: 3 } } } }", r"top_k_avg: unknown parameter\(s\) \['n'\]"),
+    ],
+)
+def test_round_4_rejections(tmp_path: Path, body: str, match: str) -> None:
+    rejects(tmp_path, body, match)
+
+
+def test_improvement_over_a_bounded_window_is_fine(tmp_path: Path) -> None:
+    assert load(tmp_path, "boards: { imp: { type: improvement, window: month, aggregate: avg } }").boards["imp"]

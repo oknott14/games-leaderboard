@@ -119,3 +119,29 @@ def test_component_without_params() -> None:
 def test_builtin_shorthand_round_trip() -> None:
     assert validate_params(WINDOWS["last_n"], {POSITIONAL: 5}).n == 5  # type: ignore[union-attr]
     assert validate_params(AGGREGATORS["top_k_avg"], {"k": 3}).k == 3  # type: ignore[union-attr]
+
+
+# ── review round 4 ──
+
+
+def test_plugin_named_like_an_existing_module_is_an_error(tmp_path: Path) -> None:
+    (tmp_path / "statistics.py").write_text("from leaderboard.boards import aggregator\n@aggregator('never')\ndef a(e, c): return 1\n")
+    with pytest.raises(RuntimeError, match=r"the name 'statistics' is already taken by .*rename the plugin file"):
+        load_plugins(tmp_path)
+    assert "never" not in AGGREGATORS
+
+
+def test_plugins_dir_is_appended_resolved_and_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from leaderboard.boards.registry import add_plugins_path
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "plugins").mkdir()
+    add_plugins_path(Path("plugins"))
+    add_plugins_path(tmp_path / "plugins")
+    assert sys.path.count(str((tmp_path / "plugins").resolve())) == 1
+    assert sys.path[-1] == str((tmp_path / "plugins").resolve())
+
+
+def test_unknown_params_rejected() -> None:
+    with pytest.raises(ValueError, match=r"with_params: unknown parameter\(s\) \['m'\] \(expected: \['label', 'n'\]\)"):
+        validate_params(WITH, {"n": 1, "m": 2})

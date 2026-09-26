@@ -21,13 +21,15 @@ The built-ins in src/leaderboard/boards/ are written the same way and make good 
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from leaderboard.boards import AggContext, Entry, aggregator
 
 
 class Params(BaseModel):
     """Parameters are a Pydantic model; boards.yaml values are validated against it."""
+
+    model_config = ConfigDict(extra="forbid")  # reject misspelled parameters
 
     k: int = Field(default=3, ge=1)
 
