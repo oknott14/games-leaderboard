@@ -30,12 +30,12 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] `best_round` comes from the post dedupe chose.
-- [ ] A game without the board's value doesn't apply.
-- [ ] Direction precedence: the board beats the aggregator, which beats the value.
-- [ ] `fetch` runs the same pipeline for another range.
-- [ ] All standings are returned (no truncation).
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] `best_round` comes from the post dedupe chose.
+- [x] A game without the board's value doesn't apply.
+- [x] Direction precedence: the board beats the aggregator, which beats the value.
+- [x] `fetch` runs the same pipeline for another range.
+- [x] All standings are returned (no truncation).
+- [x] `uv run pytest` passes; committed and pushed to `master`
 
 ## Notes
 

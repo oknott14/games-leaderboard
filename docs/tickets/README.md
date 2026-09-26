@@ -328,7 +328,7 @@ The single source of truth for who's doing what. Statuses: `Todo` → `In progre
 | [T-312](T-312-ranked-board-type.md) | `ranked` board type | C2 | S | T-311 | oknott14 | Done |
 | [T-313](T-313-daily-wins-board-type.md) | `daily_wins` board type | C2 | S | T-312 | oknott14 | Done |
 | [T-314](T-314-improvement-board-type.md) | `improvement` board type | C2 | S | T-312 | oknott14 | Done |
-| [T-315](T-315-engine.md) | Board engine: run_board, applies, range, unit | C2 | M | T-311 | | Todo |
+| [T-315](T-315-engine.md) | Board engine: run_board, applies, range, unit | C2 | M | T-311 | oknott14 | Done |
 | [T-321](T-321-registry-loading.md) | Built-in & plugin loading, params validation | C3 | S | T-006 | oknott14 | Done |
 | [T-322](T-322-load-boards.md) | boards.yaml loader & reference validation | C3 | M | T-321 | | Todo |
 | [T-323](T-323-token-collisions.md) | Command token collision check | C3 | S | T-322 | | Todo |

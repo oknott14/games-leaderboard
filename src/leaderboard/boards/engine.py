@@ -10,7 +10,17 @@ from dataclasses import dataclass
 from datetime import date
 from typing import TYPE_CHECKING
 
-from leaderboard.boards.core import DateRange, ResultRow, Standing
+from leaderboard.boards.core import (
+    AggContext,
+    BoardContext,
+    DateRange,
+    Entry,
+    ResultRow,
+    Standing,
+    chronological_key,
+    dedupe_daily,
+)
+from leaderboard.boards.registry import AGGREGATORS, BOARD_TYPES, WINDOWS, Registered, validate_params
 
 if TYPE_CHECKING:
     from leaderboard.boards.config import BoardConfig
@@ -33,17 +43,22 @@ class BoardResult:
 
 
 def board_applies(board: BoardConfig, game: GameConfig) -> bool:
-    raise NotImplementedError  # T-315
+    """A board applies to every game that has its value (optionally limited by `board.games`)."""
+    if board.games is not None and game.name not in board.games:
+        return False
+    return board.value in game.value_names()
 
 
 def board_range(board: BoardConfig, anchor: date) -> DateRange:
     """The window's date range, for headers."""
-    raise NotImplementedError  # T-315
+    win = _lookup(WINDOWS, "window", board.window.name)
+    return win.fn(anchor, validate_params(win, board.window.params)).range
 
 
 def board_unit(board: BoardConfig) -> str | None:
     """The board type's unit, else the aggregator's."""
-    raise NotImplementedError  # T-315
+    btype = _lookup(BOARD_TYPES, "board type", board.type.name)
+    return btype.unit or _lookup(AGGREGATORS, "aggregator", board.aggregate.name).unit
 
 
 def run_board(
@@ -52,5 +67,49 @@ def run_board(
     anchor: date,
     load_rows: Callable[[DateRange], list[ResultRow]],
 ) -> list[Standing]:
-    """All standings for `game` (no truncation; `board.limit` is applied by formatting)."""
-    raise NotImplementedError  # T-315
+    """All standings for `game` (no truncation; `board.limit` is applied by formatting).
+
+    Pipeline: window → load rows → one post per player per day (the game's duplicate policy,
+    judged on the score) → the board's value per post → window selection → board type.
+    """
+    win = _lookup(WINDOWS, "window", board.window.name)
+    agg = _lookup(AGGREGATORS, "aggregator", board.aggregate.name)
+    btype = _lookup(BOARD_TYPES, "board type", board.type.name)
+    window = win.fn(anchor, validate_params(win, board.window.params))
+    agg_params = validate_params(agg, board.aggregate.params)
+    type_params = validate_params(btype, board.type.params)
+
+    value_higher = game.higher_is_better_for(board.value)
+    rank_higher = next(d for d in (board.higher_is_better, agg.higher_is_better, value_higher) if d is not None)
+    score_higher = game.higher_is_better_for("score")
+
+    def entries_for(date_range: DateRange) -> list[Entry]:
+        rows = dedupe_daily(load_rows(date_range), game.duplicates, score_higher)
+        entries = [
+            Entry(row.player, row.played_on, row.posted_at, value)
+            for row in rows
+            if (value := game.value(board.value, row.score, row.rounds)) is not None
+        ]
+        entries.sort(key=chronological_key)
+        return window.select(entries) if window.select else entries
+
+    ctx = BoardContext(
+        game=game,
+        board=board,
+        value_name=board.value,
+        higher_is_better=rank_higher,
+        anchor=anchor,
+        range=window.range,
+        entries=entries_for(window.range),
+        params=type_params,
+        aggregate=lambda entries: agg.fn(entries, AggContext(value_higher, anchor, agg_params)),
+        fetch=entries_for,
+    )
+    return btype.fn(ctx)
+
+
+def _lookup(table: dict[str, Registered], kind: str, name: str) -> Registered:
+    try:
+        return table[name]
+    except KeyError:
+        raise ValueError(f"unknown {kind} {name!r}") from None

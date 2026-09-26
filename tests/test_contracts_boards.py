@@ -14,7 +14,6 @@ import leaderboard.boards as boards_api
 from leaderboard.boards import registry
 from leaderboard.boards.config import POSITIONAL, BoardConfig, BoardsFile, ComponentRef
 from leaderboard.boards.core import DateRange, Standing, WindowResult
-from leaderboard.boards.engine import board_applies, board_range, board_unit, run_board
 
 ENGINE_DOC = Path(__file__).parents[1] / "docs" / "plan" / "03-boards-engine.md"
 
@@ -151,15 +150,3 @@ def test_core_types_are_frozen() -> None:
     with pytest.raises(FrozenInstanceError):
         standing.rank = 2  # type: ignore[misc]
     assert WindowResult(DateRange(None, date(2026, 9, 24))).select is None
-
-
-def test_logic_is_stubbed() -> None:
-    board, day = BoardConfig(name="b"), date(2026, 9, 24)
-    for call in (
-        lambda: board_range(board, day),
-        lambda: board_unit(board),
-        lambda: board_applies(board, None),  # type: ignore[arg-type]
-        lambda: run_board(board, None, day, lambda r: []),  # type: ignore[arg-type]
-    ):
-        with pytest.raises(NotImplementedError):
-            call()
