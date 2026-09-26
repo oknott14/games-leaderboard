@@ -35,7 +35,7 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] Every module imports without error.
-- [ ] A reviewer has checked every signature against `00-contracts.md`.
-- [ ] `grep -r slack_ src/leaderboard` finds matches only in `adapters/`.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] Every module imports without error.
+- [x] A reviewer has checked every signature against `00-contracts.md`.
+- [x] `grep -r slack_ src/leaderboard` finds matches only in `adapters/`.
+- [x] `uv run pytest` passes; committed and pushed to `master`
