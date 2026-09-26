@@ -171,6 +171,21 @@ class GameConfig(BaseModel):
         raise NotImplementedError  # T-105
 
 
+def reduce_rounds(reducer: Reducer, rounds: tuple[float, ...]) -> float | None:
+    """Apply a `from_rounds` reducer; `None` when there are no rounds."""
+    if not rounds:
+        return None
+    match reducer:
+        case "sum":
+            return float(sum(rounds))
+        case "avg":
+            return sum(rounds) / len(rounds)
+        case "max":
+            return float(max(rounds))
+        case "min":
+            return float(min(rounds))
+
+
 def parse_number(raw: str, spec: NumberSpec) -> float | None:
     """Convert a captured string to a number: apply `spec.map`, strip separators, convert.
 

@@ -7,7 +7,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, TypeAlias
 
-from leaderboard.config import parse_number
+from leaderboard.config import parse_number, reduce_rounds
 
 if TYPE_CHECKING:
     from leaderboard.config import GameConfig
@@ -45,20 +45,45 @@ def _parse_game(text: str, game: GameConfig) -> ParsedResult | None:
     if not game.detect_re.search(text):
         return None
 
-    score = _extract_score(text, game)
+    rounds = _extract_rounds(text, game)
+    score = _extract_score(text, game, rounds)
     if score is None:
         log.warning("%s: detected, but no score could be read from %r", game.name, text[:80])
         return None
 
+    if game.rounds is not None and game.rounds.check_sum and rounds and sum(rounds) != score:
+        log.warning(
+            "%s: rounds %s add up to %s, not the posted score %s (unmapped or mis-mapped round?) in %r",
+            game.name, list(rounds), sum(rounds), score, text[:80],
+        )
+
     puzzle = None
     if game.puzzle_re is not None and (match := game.puzzle_re.search(text)):
         puzzle = match["value"].strip()
-    return ParsedResult(game=game.name, score=score, puzzle=puzzle)
+    return ParsedResult(game=game.name, score=score, rounds=rounds, puzzle=puzzle)
 
 
-def _extract_score(text: str, game: GameConfig) -> float | None:
+def _extract_score(text: str, game: GameConfig, rounds: tuple[float, ...]) -> float | None:
     assert game.score is not None
-    if game.score_re is None:
-        return None  # score.from_rounds: T-104
+    if game.score.from_rounds is not None:
+        return reduce_rounds(game.score.from_rounds, rounds)
+    assert game.score_re is not None
     match = game.score_re.search(text)
     return parse_number(match["value"], game.score) if match else None
+
+
+def _extract_rounds(text: str, game: GameConfig) -> tuple[float, ...]:
+    """Find the rounds block, then every item inside it (and only inside it)."""
+    if game.rounds is None or game.block_re is None or game.item_re is None:
+        return ()
+    block = game.block_re.search(text)
+    if not block:
+        return ()
+    rounds = []
+    for item in game.item_re.findall(block["block"]):  # the single group, or the whole match
+        value = parse_number(item, game.rounds)
+        if value is None:
+            log.warning("%s: skipping round %r (not a number and not in rounds.map)", game.name, item)
+            continue
+        rounds.append(value)
+    return tuple(rounds)

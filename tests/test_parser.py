@@ -80,3 +80,114 @@ def test_no_warning_for_undetected_games(caplog: pytest.LogCaptureFixture) -> No
     with caplog.at_level(logging.WARNING):
         parse(SAMPLES["krillion_basic"])
     assert caplog.records == []
+
+
+# ── rounds (T-104) ──
+
+KRILLION_ROUNDS = (85.0, 100.0, 30.0, 85.0, 85.0, 60.0, 60.0)
+
+
+def test_maptap_horizontal_rounds_exclude_date_and_total() -> None:
+    assert only(SAMPLES["maptap_basic"]).rounds == (93.0, 88.0, 71.0, 97.0, 85.0)
+
+
+def test_maptap_rounds_after_slack_link_normalisation_shape() -> None:
+    # the adapter turns <url|label> into the label; the raw form still detects and scores
+    result = only(SAMPLES["maptap_slack_raw"])
+    assert result.score == 862.0
+
+
+@pytest.mark.parametrize("sample", ["krillion_basic", "krillion_slack"])
+def test_krillion_tiles_map_to_round_values(sample: str) -> None:
+    result = only(SAMPLES[sample])
+    assert result.rounds == KRILLION_ROUNDS and sum(result.rounds) == result.score
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Krillion #72 :shrimp:\n505\n:izakaya_lantern::star2::fish::izakaya_lantern::izakaya_lantern::squid::squid:",
+        "Krillion #72 🦐\n505\n\n🏮🌟🐟🏮🏮🦑🦑\nugh, the squids 🦑",  # chatter after the tiles
+        "lol rough one\nKrillion #72 🦐\n505\n\n🏮🌟🐟🏮🏮🦑🦑",  # chatter before
+    ],
+)
+def test_krillion_layout_variants(text: str) -> None:
+    result = only(text)
+    assert (result.score, result.rounds) == (505.0, KRILLION_ROUNDS)
+
+
+def test_krillion_bubbles_and_lantern_alias() -> None:
+    result = only("Krillion #73 :shrimp:\n225\n\n:bubbles::lantern::fish::bubbles::fish::fish::bubbles:")
+    assert result.rounds == (10.0, 85.0, 30.0, 10.0, 30.0, 30.0, 10.0)
+
+
+VERTICAL = GameConfig.model_validate({
+    "name": "vert",
+    "flags": ["MULTILINE"],
+    "detect": r"^Vert #\d+",
+    "score": {"pattern": r"^Total: (?P<value>[\d,]+)"},
+    "rounds": {"block": r"^Vert #\d+\n(?P<block>(?:[^\n]*\n)*?)Total", "item": r"^\s*(\d[\d,]*)"},
+})
+
+
+def test_vertical_rounds_one_per_line() -> None:
+    (result,) = parse_message("Vert #9\n 1,200\n  900\n 3\nTotal: 2,103", [VERTICAL])
+    assert (result.score, result.rounds) == (2103.0, (1200.0, 900.0, 3.0))
+
+
+def test_score_from_rounds() -> None:
+    game = GameConfig.model_validate({
+        "name": "summed", "detect": "Summed", "score": {"from_rounds": "sum"},
+        "rounds": {"block": r"Summed: (?P<block>.*)", "item": r"\d+"},
+    })
+    (result,) = parse_message("Summed: 10 20 30", [game])
+    assert (result.score, result.rounds) == (60.0, (10.0, 20.0, 30.0))
+
+
+def test_score_from_rounds_without_rounds_warns(caplog: pytest.LogCaptureFixture) -> None:
+    game = GameConfig.model_validate({
+        "name": "summed", "detect": "Summed", "score": {"from_rounds": "sum"},
+        "rounds": {"block": r"Summed: (?P<block>.*)", "item": r"\d+"},
+    })
+    with caplog.at_level(logging.WARNING):
+        assert parse_message("Summed (no rounds today)", [game]) == []
+    assert "no score" in caplog.text
+
+
+def test_item_map_converts_emoji() -> None:
+    game = GameConfig.model_validate({
+        "name": "squares", "detect": "Squares", "score": {"from_rounds": "sum"},
+        "rounds": {"block": r"Squares\n(?P<block>.+)", "item": r":\w+:",
+                   "map": {":large_green_square:": 2, ":large_yellow_square:": 1, ":black_large_square:": 0}},
+    })
+    (result,) = parse_message("Squares\n:large_green_square::black_large_square::large_yellow_square:", [game])
+    assert (result.rounds, result.score) == ((2.0, 0.0, 1.0), 3.0)
+
+
+def test_unmappable_item_is_skipped_with_warning(caplog: pytest.LogCaptureFixture) -> None:
+    game = GameConfig.model_validate({
+        "name": "squares", "detect": "Squares", "score": {"pattern": r"= (?P<value>\d+)"},
+        "rounds": {"block": r"Squares\n(?P<block>.+)", "item": r":\w+:", "map": {":a:": 1}},
+    })
+    with caplog.at_level(logging.WARNING):
+        (result,) = parse_message("Squares\n:a::mystery::a:\n= 2", [game])
+    assert result.rounds == (1.0, 1.0)
+    assert "skipping round ':mystery:'" in caplog.text
+
+
+def test_check_sum_mismatch_warns_and_keeps_posted_score(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.WARNING):
+        result = only("Krillion #72 🦐\n999\n\n🏮🌟🐟🏮🏮🦑🦑")
+    assert result.score == 999.0 and result.rounds == KRILLION_ROUNDS
+    assert "add up to 505.0, not the posted score 999.0" in caplog.text
+
+
+def test_check_sum_match_is_silent(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.WARNING):
+        only(SAMPLES["krillion_basic"])
+    assert caplog.records == []
+
+
+def test_no_rounds_block_gives_empty_rounds() -> None:
+    assert only(SAMPLES["timeguessr_basic"]).rounds == ()
+    assert only("Krillion #72 🦐\n505").rounds == ()
