@@ -25,7 +25,7 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] A tied day credits both players.
-- [ ] Lower-is-better games pick the minimum.
-- [ ] `detail` is correct.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] A tied day credits both players.
+- [x] Lower-is-better games pick the minimum.
+- [x] `detail` is correct.
+- [x] `uv run pytest` passes; committed and pushed to `master`

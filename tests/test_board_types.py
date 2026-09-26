@@ -73,3 +73,38 @@ def test_ranked_ties_share_a_rank() -> None:
 
 def test_ranked_empty() -> None:
     assert run("ranked", context([])) == []
+
+
+# ── daily_wins ──
+
+
+def test_daily_wins_counts_days_won() -> None:
+    entries = [
+        entry("a", 21, 500), entry("b", 21, 400),
+        entry("a", 22, 300), entry("b", 22, 600),
+        entry("a", 23, 700), entry("b", 23, 100), entry("c", 23, 50),
+    ]
+    assert run("daily_wins", context(entries)) == [
+        ("a", 2.0, 3, 1, "3 played"), ("b", 1.0, 3, 2, "3 played"), ("c", 0.0, 1, 3, "1 played"),
+    ]
+
+
+def test_daily_wins_ties_all_win() -> None:
+    entries = [entry("a", 21, 500), entry("b", 21, 500), entry("c", 21, 100)]
+    assert [(p, v) for p, v, *_ in run("daily_wins", context(entries))] == [("a", 1.0), ("b", 1.0), ("c", 0.0)]
+
+
+def test_daily_wins_lower_is_better_picks_minimum() -> None:
+    entries = [entry("a", 21, 3), entry("b", 21, 5)]
+    assert run("daily_wins", context(entries, higher=False))[0][:2] == ("a", 1.0)
+
+
+def test_daily_wins_min_entries_is_days_played() -> None:
+    entries = [entry("a", 21, 9), entry("a", 22, 9), entry("b", 21, 1)]
+    assert [p for p, *_ in run("daily_wins", context(entries, min_entries=2))] == ["a"]
+
+
+def test_daily_wins_ranks_by_wins_even_for_lower_is_better_games() -> None:
+    entries = [entry("a", 21, 1), entry("a", 22, 1), entry("b", 21, 9), entry("b", 22, 9)]
+    assert [p for p, *_ in run("daily_wins", context(entries, higher=False))] == ["a", "b"]
+    assert BOARD_TYPES["daily_wins"].unit == "wins"
