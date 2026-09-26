@@ -25,6 +25,6 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] Each policy picks the right row, including when rows arrive out of order.
-- [ ] Ties give 1, 1, 3, and both directions work.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] Each policy picks the right row, including when rows arrive out of order.
+- [x] Ties give 1, 1, 3, and both directions work.
+- [x] `uv run pytest` passes; committed and pushed to `master`

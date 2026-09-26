@@ -5,6 +5,7 @@ Everything here is pure data or pure functions: no database, chat or formatting.
 
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -84,10 +85,36 @@ class BoardContext:
 
 
 def dedupe_daily(rows: list[ResultRow], policy: DuplicatePolicy, higher_is_better: bool) -> list[ResultRow]:
-    """Keep one row per (player, played_on) according to the game's duplicate policy."""
-    raise NotImplementedError  # T-311
+    """Keep one row per (player, played_on) according to the game's duplicate policy.
+
+    `first`/`last` pick by post time; `best` picks the best score in `higher_is_better`'s
+    direction (ties go to the earliest post). Returns rows sorted by (played_on, posted_at).
+    """
+    groups: dict[tuple[PlayerKey, date], list[ResultRow]] = defaultdict(list)
+    for row in rows:
+        groups[(row.player, row.played_on)].append(row)
+
+    def pick(day_rows: list[ResultRow]) -> ResultRow:
+        by_time = sorted(day_rows, key=lambda r: r.posted_at)
+        if policy == "first":
+            return by_time[0]
+        if policy == "last":
+            return by_time[-1]
+        sign = -1 if higher_is_better else 1
+        return min(by_time, key=lambda r: sign * r.score)  # min() keeps the earliest on ties
+
+    return sorted((pick(g) for g in groups.values()), key=lambda r: (r.played_on, r.posted_at))
 
 
 def rank(scored: list[tuple[PlayerKey, float, int, str | None]], higher_is_better: bool) -> list[Standing]:
-    """Sort `(player, value, entries, detail)` tuples and assign competition ranks."""
-    raise NotImplementedError  # T-311
+    """Sort `(player, value, entries, detail)` tuples and assign competition ranks (1, 1, 3).
+
+    Equal values share a rank; ties are listed in player order so output is stable.
+    """
+    sign = -1 if higher_is_better else 1
+    ordered = sorted(scored, key=lambda s: (sign * s[1], s[0]))
+    standings: list[Standing] = []
+    for position, (player, value, entries, detail) in enumerate(ordered, 1):
+        tied = standings and standings[-1].value == value
+        standings.append(Standing(player, value, entries, standings[-1].rank if tied else position, detail))
+    return standings
