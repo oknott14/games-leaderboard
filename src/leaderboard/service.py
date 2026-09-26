@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload, sessionmaker
 
 from leaderboard.boards import engine as board_engine
@@ -81,10 +82,20 @@ class LeaderboardService:
         """Store a new or edited message and replace its parsed results. Idempotent."""
         if msg.channel_id not in self.channel_ids:
             return
-        results = parse_message(msg.text, self.games.values())
+        try:
+            self._upsert(msg)
+        except IntegrityError:
+            # A concurrent handler (e.g. a live event racing a backfill replay) inserted the same
+            # message first; retrying now takes the "existing message" path.
+            log.info("Message %s was stored concurrently; retrying as an update", msg.message_id)
+            self._upsert(msg)
 
+    def _upsert(self, msg: ChatMessage) -> None:
         with self.sessions.begin() as session:
             row = self._find(session, msg.platform, msg.channel_id, msg.message_id)
+            if row is not None and (row.text, row.user_id, row.thread_id) == (msg.text, msg.user_id, msg.thread_id):
+                return  # unchanged replay; reparse covers config changes
+            results = parse_message(msg.text, self.games.values())
             if row is None:
                 if not results and not self.store_non_game:
                     return
@@ -102,7 +113,7 @@ class LeaderboardService:
                 row.results.clear()
                 session.flush()  # delete old results before inserting new ones (unique per game)
 
-            self._add_results(row, results)
+            self._add_results(session, row, results)
 
     def on_message_deleted(self, platform: str, channel_id: str, message_id: str) -> None:
         with self.sessions.begin() as session:
@@ -151,19 +162,25 @@ class LeaderboardService:
             count = 0
             for row in session.scalars(select(Message).order_by(Message.posted_at, Message.id)).all():
                 parsed = parse_message(row.text, games)
-                self._add_results(row, parsed)
+                self._add_results(session, row, parsed)
                 count += len(parsed)
         log.info("Reparsed stored messages: %d results", count)
         return count
 
-    def _add_results(self, row: Message, results: list[ParsedResult]) -> None:
+    def _add_results(self, session: Session, row: Message, results: list[ParsedResult]) -> None:
+        """Insert results by foreign key (not via `row.results`, which would lazy-load the
+        collection once per message during reparse)."""
+        if not results:
+            return
+        if row.id is None:
+            session.flush()  # assign the new message's id
         played_on = local_date(row.posted_at, self.tz)
         for parsed in results:
-            result = GameResult(game=parsed.game, platform=row.platform, user_id=row.user_id,
-                                score=parsed.score, puzzle=parsed.puzzle, played_on=played_on,
-                                posted_at=row.posted_at)
+            result = GameResult(message_pk=row.id, game=parsed.game, platform=row.platform,
+                                user_id=row.user_id, score=parsed.score, puzzle=parsed.puzzle,
+                                played_on=played_on, posted_at=row.posted_at)
             result.rounds = [GameRound(round_no=i, value=v) for i, v in enumerate(parsed.rounds, 1)]
-            row.results.append(result)
+            session.add(result)
 
     @staticmethod
     def _find(session: Session, platform: str, channel_id: str, message_id: str) -> Message | None:

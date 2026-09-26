@@ -69,3 +69,31 @@ def test_notes_missing_normalisation(games_dir: Path, capsys: pytest.CaptureFixt
     err = capsys.readouterr().err
     # Until T-501 lands the adapter raises NotImplementedError; afterwards there's no note.
     assert err == "" or "normalisation isn't implemented yet" in err
+
+
+def test_long_labels_keep_a_gap(tmp_path: Path) -> None:
+    (tmp_path / "wordle.yaml").write_text(
+        "display_name: Wordle Unlimited Deluxe\ndetect: Wordle\nscore: { pattern: 'Wordle (?P<value>\\d+)' }\n"
+    )
+    _, out = run(tmp_path, "Wordle 5")
+    assert out == "Wordle Unlimited Deluxe  score=5  rounds=-  puzzle=-\n"
+
+
+def test_plugin_games_load_from_plugins_dir(tmp_path: Path) -> None:
+    (tmp_path / "games").mkdir()
+    (tmp_path / "plugins").mkdir()
+    (tmp_path / "plugins" / "cli_plugin_ok.py").write_text(
+        "from leaderboard.parser import ParsedResult\n"
+        "def parse(text):\n    return ParsedResult('x', 7) if 'Seven' in text else None\n"
+    )
+    (tmp_path / "games" / "seven.yaml").write_text("parser: cli_plugin_ok:parse\n")
+    out = io.StringIO()
+    code = parse_main(["--games-dir", str(tmp_path / "games"), "--plugins-dir", str(tmp_path / "plugins"),
+                       "Seven!"], stdin=io.StringIO(), out=out)
+    assert (code, out.getvalue()) == (0, "seven         score=7  rounds=-  puzzle=-\n")
+
+
+def test_unloadable_plugin_exits_2(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (tmp_path / "seven.yaml").write_text("parser: cli_plugin_missing_xyz:parse\n")
+    assert run(tmp_path, "x")[0] == 2
+    assert "can't load parser" in capsys.readouterr().err

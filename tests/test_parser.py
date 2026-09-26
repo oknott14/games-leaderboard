@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import logging
 import re
+from pathlib import Path
 
 import pytest
 from conftest import SAMPLES, sample_games
@@ -247,12 +248,24 @@ def parse(text):
 def broken(text):
     return {"score": 1}
 
+def explodes(text):
+    raise IndexError("plugin bug")
+
+def no_score(text):
+    return ParsedResult(game="x", score=None)
+
+def string_score(text):
+    return ParsedResult(game="x", score="42", rounds=("40", 2), puzzle=7)
+
+def infinite(text):
+    return ParsedResult(game="x", score=float("inf"))
+
 not_a_function = 5
 '''
 
 
 @pytest.fixture
-def plugin_module(tmp_path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> str:
+def plugin_module(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> str:
     name = "weird_plugin_" + re.sub(r"\W", "_", request.node.name)  # unique per test
     (tmp_path / f"{name}.py").write_text(PLUGIN_SOURCE)
     monkeypatch.syspath_prepend(str(tmp_path))
@@ -303,3 +316,24 @@ def test_plugin_returning_wrong_type_is_ignored(plugin_module: str, caplog: pyte
     with caplog.at_level(logging.WARNING):
         assert parse_message("x", [plugin_game(f"{plugin_module}:broken")]) == []
     assert "not a ParsedResult" in caplog.text
+
+
+def test_plugin_exception_is_contained(plugin_module: str, caplog: pytest.LogCaptureFixture) -> None:
+    games = [plugin_game(f"{plugin_module}:explodes"), GAMES["krillion"]]
+    with caplog.at_level(logging.ERROR):
+        results = parse_message(SAMPLES["krillion_basic"], games)
+    assert [r.game for r in results] == ["krillion"]  # other games still parse
+    assert "raised on" in caplog.text and "IndexError: plugin bug" in caplog.text
+
+
+@pytest.mark.parametrize(("func", "why"), [("no_score", "non-numeric"), ("infinite", "non-finite")])
+def test_plugin_bad_numbers_are_ignored(plugin_module: str, func: str, why: str,
+                                        caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.WARNING):
+        assert parse_message("x", [plugin_game(f"{plugin_module}:{func}")]) == []
+    assert why in caplog.text
+
+
+def test_plugin_numeric_strings_are_coerced(plugin_module: str) -> None:
+    (result,) = parse_message("x", [plugin_game(f"{plugin_module}:string_score")])
+    assert result == ParsedResult(game="weird", score=42.0, rounds=(40.0, 2.0), puzzle="7")

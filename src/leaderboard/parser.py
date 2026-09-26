@@ -62,32 +62,47 @@ def _parse_game(text: str, game: GameConfig) -> ParsedResult | None:
     return ParsedResult(game=game.name, score=score, rounds=rounds, puzzle=puzzle)
 
 
-_plugins: dict[str, PluginParser] = {}
+def load_plugin_parser(game: GameConfig) -> PluginParser:
+    """Resolve `game.parser` ("module:function"). The plugins dir must be on sys.path.
 
-
-def _load_plugin(game: GameConfig) -> PluginParser:
-    """Resolve `game.parser` ("module:function") on first use; the plugins dir is on sys.path."""
+    Raises `ValueError` naming the game if it can't be loaded. Imports are cached by sys.modules.
+    """
     assert game.parser is not None
-    if game.parser not in _plugins:
-        module_name, _, func_name = game.parser.partition(":")
-        try:
-            func = getattr(importlib.import_module(module_name), func_name)
-        except (ImportError, AttributeError) as exc:
-            raise ValueError(f"game {game.name!r}: can't load parser {game.parser!r}: {exc}") from exc
-        if not callable(func):
-            raise ValueError(f"game {game.name!r}: parser {game.parser!r} is not callable")
-        _plugins[game.parser] = func
-    return _plugins[game.parser]
+    module_name, _, func_name = game.parser.partition(":")
+    try:
+        func = getattr(importlib.import_module(module_name), func_name)
+    except (ImportError, AttributeError) as exc:
+        raise ValueError(f"game {game.name!r}: can't load parser {game.parser!r}: {exc}") from exc
+    if not callable(func):
+        raise ValueError(f"game {game.name!r}: parser {game.parser!r} is not callable")
+    return func  # type: ignore[no-any-return]
 
 
 def _parse_with_plugin(text: str, game: GameConfig) -> ParsedResult | None:
-    result = _load_plugin(game)(text)
+    """Run a plugin parser. A plugin can never break parsing for other games or messages:
+    exceptions and malformed results are logged and treated as "not detected"."""
+    parser = load_plugin_parser(game)
+    try:
+        result = parser(text)
+    except Exception:
+        log.exception("%s: parser %s raised on %r; ignoring", game.name, game.parser, text[:80])
+        return None
     if result is None:
         return None
     if not isinstance(result, ParsedResult):
         log.warning("%s: parser %s returned %r, not a ParsedResult; ignoring", game.name, game.parser, result)
         return None
-    return replace(result, game=game.name)
+    try:
+        score = float(result.score)
+        rounds = tuple(float(r) for r in result.rounds)
+    except (TypeError, ValueError):
+        log.warning("%s: parser %s returned non-numeric score/rounds %r; ignoring", game.name, game.parser, result)
+        return None
+    if not (math.isfinite(score) and all(math.isfinite(r) for r in rounds)):
+        log.warning("%s: parser %s returned a non-finite score/round %r; ignoring", game.name, game.parser, result)
+        return None
+    puzzle = None if result.puzzle is None else str(result.puzzle)
+    return replace(result, game=game.name, score=score, rounds=rounds, puzzle=puzzle)
 
 
 def _extract_score(text: str, game: GameConfig, rounds: tuple[float, ...]) -> float | None:

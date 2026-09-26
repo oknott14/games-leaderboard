@@ -336,3 +336,42 @@ def test_load_rows_unbounded_start(service) -> None:  # noqa: ANN001
     rows = service._load_rows("krillion", DateRange(None, date(2026, 9, 24)))
     assert [r.played_on.day for r in rows] == [20, 22, 24]
     assert rows[0].player == ("slack", "U1") and rows[0].posted_at.tzinfo is None
+
+
+# ── code review regressions (round 2) ──
+
+
+def test_unchanged_replay_does_not_rewrite_results(service, sessions) -> None:  # noqa: ANN001
+    service.on_message(msg(SAMPLES["krillion_basic"]))
+    before = [r.id for r in results(sessions)]
+    service.on_message(msg(SAMPLES["krillion_basic"]))
+    assert [r.id for r in results(sessions)] == before
+
+
+def test_concurrent_insert_retries_as_update(service, sessions, monkeypatch) -> None:  # noqa: ANN001
+    service.on_message(msg(SAMPLES["krillion_basic"]))  # "the other thread" already stored it
+    real_find = LeaderboardService._find
+    misses = iter([True])
+
+    def racing_find(session, *key):  # noqa: ANN001, ANN202
+        return None if next(misses, False) else real_find(session, *key)
+
+    monkeypatch.setattr(LeaderboardService, "_find", staticmethod(racing_find))
+    service.on_message(msg("Krillion #72 🦐\n610\n\n🌟🌟🌟🌟🌟🦑🫧"))
+    assert [r.score for r in results(sessions)] == [610.0]
+
+
+def test_reparse_query_count_is_constant(service, sessions) -> None:  # noqa: ANN001
+    from sqlalchemy import event
+
+    for i in range(20):
+        service.on_message(msg(SAMPLES["krillion_basic"], str(i), at=T0 + timedelta(minutes=i)))
+    selects: list[str] = []
+    engine = sessions.kw["bind"]
+    listener = lambda *a: selects.append(a[2]) if a[2].lstrip().upper().startswith("SELECT") else None  # noqa: E731
+    event.listen(engine, "before_cursor_execute", listener)
+    try:
+        service.reparse()
+    finally:
+        event.remove(engine, "before_cursor_execute", listener)
+    assert len(selects) <= 2  # the messages query, not one per message
