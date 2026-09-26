@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -375,3 +376,60 @@ def test_reparse_query_count_is_constant(service, sessions) -> None:  # noqa: AN
     finally:
         event.remove(engine, "before_cursor_execute", listener)
     assert len(selects) <= 2  # the messages query, not one per message
+
+
+# ── on_command (T-206), with commands/formatting stubbed until T-402/T-405/T-406 ──
+
+
+@pytest.fixture
+def fake_commands(monkeypatch: pytest.MonkeyPatch, fake_engine) -> dict[str, object]:  # noqa: ANN001
+    from leaderboard import commands, formatting
+
+    seen: dict[str, object] = {}
+
+    def parse_command(text, *, today, games, boards):  # noqa: ANN001, ANN202
+        seen["parse"] = (text, today, sorted(games), boards)
+        if text == "help":
+            return commands.InfoRequest("help")
+        if text == "boom":
+            raise RuntimeError("kaboom")
+        if text.startswith("weekly"):
+            return commands.Query(make_board(name="weekly"), None, today)
+        return commands.CommandError("didn't understand", ["weekly"])
+
+    monkeypatch.setattr(commands, "parse_command", parse_command)
+    monkeypatch.setattr(formatting, "format_board",
+                        lambda result, name_for: f"board:{result.board.name}:{[s.game.name for s in result.sections]}"
+                        f":{name_for('slack', 'U1')}")
+    monkeypatch.setattr(formatting, "format_info", lambda topic, games, boards: f"info:{topic}")
+    monkeypatch.setattr(formatting, "format_error", lambda err: f"error:{err.message}:{err.suggestions}")
+    return seen
+
+
+def test_on_command_query_runs_the_board(sessions, fake_commands) -> None:  # noqa: ANN001
+    service = make_service(sessions, name_for=lambda platform, user: f"@{user}")
+    service.on_message(msg(SAMPLES["krillion_basic"]))
+    assert service.on_command("weekly") == "board:weekly:['krillion']:@U1"
+    assert fake_commands["parse"] == ("weekly", date(2026, 9, 24), ["krillion", "maptap", "timeguessr"], {})
+
+
+def test_on_command_info(service, fake_commands) -> None:  # noqa: ANN001
+    assert service.on_command("help") == "info:help"
+
+
+def test_on_command_error(service, fake_commands) -> None:  # noqa: ANN001
+    assert service.on_command("wekly") == "error:didn't understand:['weekly']"
+
+
+def test_on_command_exception_gives_fallback(service, fake_commands, caplog) -> None:  # noqa: ANN001
+    from leaderboard.service import COMMAND_FAILED
+
+    with caplog.at_level(logging.ERROR):
+        assert service.on_command("boom") == COMMAND_FAILED
+    assert "Command 'boom' failed" in caplog.text and "RuntimeError: kaboom" in caplog.text
+
+
+def test_on_command_passes_saved_boards(sessions, fake_commands) -> None:  # noqa: ANN001
+    boards = BoardsFile.model_validate({"boards": {"weekly": {"window": "week"}}})
+    make_service(sessions, boards=boards).on_command("help")
+    assert list(fake_commands["parse"][3]) == ["weekly"]  # type: ignore[index]

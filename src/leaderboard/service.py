@@ -17,6 +17,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload, sessionmaker
 
+from leaderboard import commands, formatting
 from leaderboard.boards import engine as board_engine
 from leaderboard.boards.core import DateRange, ResultRow
 from leaderboard.models import GameResult, GameRound, Message
@@ -31,6 +32,8 @@ if TYPE_CHECKING:
     from leaderboard.ports import ChatMessage, ChatPort
 
 log = logging.getLogger(__name__)
+
+COMMAND_FAILED = "Sorry, something went wrong — check the bot logs."
 
 
 def to_db(dt: datetime) -> datetime:
@@ -225,8 +228,18 @@ class LeaderboardService:
                 for r in session.scalars(stmt)
             ]
 
-    # ── not yet implemented ──
+    # ── commands ──
 
     def on_command(self, text: str) -> str:
-        raise NotImplementedError  # T-206
+        """Answer a chat command. Never raises: the bot must not go silent."""
+        try:
+            parsed = commands.parse_command(text, today=self.today(), games=self.games, boards=self.boards.boards)
+            if isinstance(parsed, commands.Query):
+                return formatting.format_board(self.run_query(parsed), self.name_for)
+            if isinstance(parsed, commands.InfoRequest):
+                return formatting.format_info(parsed.topic, self.games, self.boards.boards)
+            return formatting.format_error(parsed)
+        except Exception:
+            log.exception("Command %r failed", text)
+            return COMMAND_FAILED
 

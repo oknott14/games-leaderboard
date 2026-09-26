@@ -26,6 +26,6 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] Each of the three result kinds routes correctly.
-- [ ] An exception gives the fallback reply and a logged traceback.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] Each of the three result kinds routes correctly.
+- [x] An exception gives the fallback reply and a logged traceback.
+- [x] `uv run pytest` passes; committed and pushed to `master`
