@@ -31,8 +31,8 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] TimeGuessr `TimeGuessr #512 38,532/50,000` gives score 38532 and puzzle `"512"`.
-- [ ] Two games in one message give two results.
-- [ ] A non-game message gives `[]`.
-- [ ] `detect` matching with the score missing gives `[]` plus a warning (`caplog`).
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] TimeGuessr `TimeGuessr #512 38,532/50,000` gives score 38532 and puzzle `"512"`.
+- [x] Two games in one message give two results.
+- [x] A non-game message gives `[]`.
+- [x] `detect` matching with the score missing gives `[]` plus a warning (`caplog`).
+- [x] `uv run pytest` passes; committed and pushed to `master`
