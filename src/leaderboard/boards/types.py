@@ -3,9 +3,18 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 
-from leaderboard.boards.core import BoardContext, Entry, PlayerKey, Standing, group_by_player, rank, same_value
+from leaderboard.boards.core import (
+    BoardContext,
+    DateRange,
+    Entry,
+    PlayerKey,
+    Standing,
+    group_by_player,
+    rank,
+    same_value,
+)
 from leaderboard.boards.registry import board_type
 
 
@@ -44,3 +53,35 @@ def daily_wins(ctx: BoardContext) -> list[Standing]:
         if days_played >= ctx.board.min_entries:
             scored.append((player, float(wins[player]), days_played, f"{days_played} played"))
     return rank(scored, higher_is_better=True)
+
+
+@board_type("improvement", description="Change in each player's aggregate vs the previous period (+ = better)",
+            unit="±")
+def improvement(ctx: BoardContext) -> list[Standing]:
+    """Compare the window with the same-length period immediately before it.
+
+    Only players with enough results in both periods are ranked. The delta is signed so that a
+    positive number always means improved, in the aggregate's direction.
+    """
+    if ctx.range.start is None:
+        raise ValueError("improvement needs a bounded window (not `all` or `last_n`)")
+    length = ctx.range.end - ctx.range.start + timedelta(days=1)
+    previous = DateRange(ctx.range.start - length, ctx.range.start - timedelta(days=1))
+
+    now = group_by_player(ctx.entries)
+    before = group_by_player(ctx.fetch(previous))
+    sign = 1 if ctx.higher_is_better else -1
+    scored = []
+    for player, entries in now.items():
+        prior = before.get(player, [])
+        if min(len(entries), len(prior)) < ctx.board.min_entries:
+            continue
+        current, past = ctx.aggregate(entries), ctx.aggregate(prior)
+        if current is None or past is None:
+            continue
+        scored.append((player, sign * (current - past), len(entries), f"{_num(past)} → {_num(current)}"))
+    return rank(scored, higher_is_better=True)
+
+
+def _num(value: float) -> str:
+    return f"{value:,.0f}" if float(value).is_integer() else f"{value:,.1f}"

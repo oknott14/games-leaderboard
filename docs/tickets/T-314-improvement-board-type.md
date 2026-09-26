@@ -26,10 +26,10 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] Positive always means improved, in both directions.
-- [ ] Players missing from either period are excluded.
-- [ ] An unbounded window raises.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] Positive always means improved, in both directions.
+- [x] Players missing from either period are excluded.
+- [x] An unbounded window raises.
+- [x] `uv run pytest` passes; committed and pushed to `master`
 
 ## Notes
 

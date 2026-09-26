@@ -4,6 +4,7 @@ from collections.abc import Callable
 from datetime import date, datetime
 from typing import Any
 
+import pytest
 from conftest import make_board, sample_games
 
 from leaderboard.boards import types  # noqa: F401  (registers the built-ins)
@@ -124,3 +125,67 @@ def test_daily_wins_uses_the_values_direction_not_the_boards() -> None:
 def test_daily_wins_float_ties_all_win() -> None:
     entries = [entry("a", 21, 0.1 + 0.2), entry("b", 21, 0.3)]
     assert [v for _, v, *_ in run("daily_wins", context(entries))] == [1.0, 1.0]
+
+
+# ── improvement (T-314) ──
+
+THIS_WEEK = DateRange(date(2026, 9, 21), date(2026, 9, 27))
+
+
+def history_fetch(entries: list[Entry], calls: list[DateRange]) -> Callable[[DateRange], list[Entry]]:
+    def fetch(rng: DateRange) -> list[Entry]:
+        calls.append(rng)
+        return [e for e in entries if rng.start <= e.played_on <= rng.end]  # type: ignore[operator]
+    return fetch
+
+
+def dated(player: str, d: date, value: float) -> Entry:
+    return Entry(("slack", player), d, datetime.combine(d, datetime.min.time()), value)
+
+
+def avg(entries: list[Entry]) -> float | None:
+    return sum(e.value for e in entries) / len(entries) if entries else None
+
+
+def test_improvement_compares_with_the_previous_same_length_period() -> None:
+    calls: list[DateRange] = []
+    last_week = [dated("a", date(2026, 9, 15), 400), dated("b", date(2026, 9, 16), 800)]
+    this_week = [dated("a", date(2026, 9, 22), 600), dated("b", date(2026, 9, 23), 700)]
+    ctx = context(this_week, aggregate=avg, rng=THIS_WEEK, fetch=history_fetch(last_week, calls))
+    assert run("improvement", ctx) == [
+        ("a", 200.0, 1, 1, "400 → 600"),
+        ("b", -100.0, 1, 2, "800 → 700"),
+    ]
+    assert calls == [DateRange(date(2026, 9, 14), date(2026, 9, 20))]
+
+
+def test_improvement_positive_means_better_for_lower_is_better() -> None:
+    last_week = [dated("a", date(2026, 9, 15), 5)]
+    this_week = [dated("a", date(2026, 9, 22), 3)]  # fewer guesses: better
+    ctx = context(this_week, aggregate=avg, rng=THIS_WEEK, higher=False, fetch=history_fetch(last_week, []))
+    assert run("improvement", ctx)[0][:2] == ("a", 2.0)
+
+
+def test_improvement_needs_both_periods() -> None:
+    last_week = [dated("a", date(2026, 9, 15), 1), dated("gone", date(2026, 9, 15), 1)]
+    this_week = [dated("a", date(2026, 9, 22), 2), dated("new", date(2026, 9, 22), 9)]
+    ctx = context(this_week, aggregate=avg, rng=THIS_WEEK, fetch=history_fetch(last_week, []))
+    assert [p for p, *_ in run("improvement", ctx)] == ["a"]
+
+
+def test_improvement_min_entries_applies_to_both_periods() -> None:
+    last_week = [dated("a", date(2026, 9, 15), 1)]
+    this_week = [dated("a", date(2026, 9, 22), 2), dated("a", date(2026, 9, 23), 2)]
+    ctx = context(this_week, aggregate=avg, rng=THIS_WEEK, fetch=history_fetch(last_week, []), min_entries=2)
+    assert run("improvement", ctx) == []
+
+
+def test_improvement_empty_previous_period() -> None:
+    ctx = context([dated("a", date(2026, 9, 22), 2)], aggregate=avg, rng=THIS_WEEK, fetch=lambda r: [])
+    assert run("improvement", ctx) == []
+
+
+def test_improvement_needs_a_bounded_window() -> None:
+    with pytest.raises(ValueError, match="bounded window"):
+        run("improvement", context([], rng=DateRange(None, ANCHOR)))
+    assert BOARD_TYPES["improvement"].unit == "±"
