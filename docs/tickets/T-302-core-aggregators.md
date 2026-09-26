@@ -26,7 +26,7 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] Each aggregator is correct on a small list.
-- [ ] `best`/`worst` flip with the direction.
-- [ ] An empty list gives `None` (except `count`, which gives 0).
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] Each aggregator is correct on a small list.
+- [x] `best`/`worst` flip with the direction.
+- [x] An empty list gives `None` (except `count`, which gives 0).
+- [x] `uv run pytest` passes; committed and pushed to `master`
