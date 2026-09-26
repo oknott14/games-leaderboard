@@ -27,7 +27,7 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] Loads a temporary directory of valid games and skips the disabled ones.
-- [ ] A duplicate alias across two files gives an error naming the second file.
-- [ ] A malformed YAML file gives an error naming the file.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] Loads a temporary directory of valid games and skips the disabled ones.
+- [x] A duplicate alias across two files gives an error naming the second file.
+- [x] A malformed YAML file gives an error naming the file.
+- [x] `uv run pytest` passes; committed and pushed to `master`

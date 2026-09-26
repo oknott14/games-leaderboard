@@ -11,6 +11,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Literal, Self
 
+import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 Flag = Literal["IGNORECASE", "DOTALL", "MULTILINE"]
@@ -186,5 +187,33 @@ def parse_number(raw: str, spec: NumberSpec) -> float | None:
 
 
 def load_games(directory: Path) -> dict[str, GameConfig]:
-    """Load, validate and return the enabled games in `directory`, keyed by name."""
-    raise NotImplementedError  # T-102
+    """Load, validate and return the enabled games in `directory`, keyed by name.
+
+    Files are read in sorted order; `name` defaults to the file stem. Names, aliases and display
+    names are command tokens, so they must be unique across games (case-insensitive). Every error
+    is a `ValueError` prefixed with the offending file's path.
+    """
+    if not directory.is_dir():
+        raise ValueError(f"{directory}: games directory not found")
+
+    games: dict[str, GameConfig] = {}
+    owners: dict[str, tuple[str, Path]] = {}  # lowercased token → (game name, file)
+    for path in sorted([*directory.glob("*.yaml"), *directory.glob("*.yml")]):
+        try:
+            raw = yaml.safe_load(path.read_text()) or {}
+            if not isinstance(raw, dict):
+                raise ValueError("expected a mapping at the top level")
+            game = GameConfig.model_validate({"name": path.stem} | raw)
+        except (yaml.YAMLError, ValueError) as exc:  # pydantic's ValidationError is a ValueError
+            raise ValueError(f"{path}: {exc}") from exc
+        if not game.enabled:
+            continue
+
+        tokens = {game.name, *game.aliases, *([game.display_name] if game.display_name else [])}
+        for token in sorted(tokens):
+            owner = owners.get(token.lower())
+            if owner is not None and owner[0] != game.name:
+                raise ValueError(f"{path}: {token!r} is already used by game {owner[0]!r} ({owner[1]})")
+            owners[token.lower()] = (game.name, path)
+        games[game.name] = game
+    return games

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Any
 
 import pytest
 from pydantic import ValidationError
 
-from leaderboard.config import GameConfig, NumberSpec, parse_number
+from leaderboard.config import GameConfig, NumberSpec, load_games, parse_number
 
 BASE: dict[str, Any] = {"name": "g", "detect": "G #\\d+", "score": {"pattern": "(?P<value>\\d+)"}}
 ROUNDS = {"block": "(?P<block>.+)", "item": "\\d+"}
@@ -127,3 +128,93 @@ def test_check_sum_needs_a_score_pattern() -> None:
 
 def test_unknown_key_rejected() -> None:
     rejects("Extra inputs are not permitted", detcet="typo")
+
+
+# ── load_games ──
+
+MAPTAP_YAML = """
+display_name: MapTap
+aliases: [map]
+detect: 'maptap\\.gg'
+score: { pattern: 'final score:?\\s*(?P<value>[\\d,]+)' }
+"""
+
+
+def write(directory: Path, name: str, body: str) -> Path:
+    path = directory / name
+    path.write_text(body)
+    return path
+
+
+def test_load_games_reads_yaml_and_yml_in_sorted_order(tmp_path: Path) -> None:
+    write(tmp_path, "zeta.yml", "detect: z\nscore: { pattern: '(?P<value>\\d+)' }\n")
+    write(tmp_path, "maptap.yaml", MAPTAP_YAML)
+    write(tmp_path, "notes.txt", "ignored")
+    games = load_games(tmp_path)
+    assert list(games) == ["maptap", "zeta"]
+    assert games["zeta"].name == "zeta"  # defaults to the file stem
+
+
+def test_load_games_explicit_name_wins(tmp_path: Path) -> None:
+    write(tmp_path, "map.yaml", "name: maptap\n" + MAPTAP_YAML)
+    assert list(load_games(tmp_path)) == ["maptap"]
+
+
+def test_load_games_skips_disabled(tmp_path: Path) -> None:
+    write(tmp_path, "maptap.yaml", MAPTAP_YAML)
+    write(tmp_path, "krillion.yaml", "enabled: false\ndetect: k\nscore: { pattern: '(?P<value>\\d+)' }\n")
+    assert list(load_games(tmp_path)) == ["maptap"]
+
+
+def test_disabled_games_dont_reserve_tokens(tmp_path: Path) -> None:
+    write(tmp_path, "a.yaml", "enabled: false\naliases: [map]\ndetect: a\nscore: { pattern: '(?P<value>\\d+)' }\n")
+    write(tmp_path, "maptap.yaml", MAPTAP_YAML)
+    assert list(load_games(tmp_path)) == ["maptap"]
+
+
+def test_duplicate_alias_across_files_names_the_second_file(tmp_path: Path) -> None:
+    write(tmp_path, "maptap.yaml", MAPTAP_YAML)
+    second = write(tmp_path, "other.yaml", "aliases: [MAP]\ndetect: o\nscore: { pattern: '(?P<value>\\d+)' }\n")
+    with pytest.raises(ValueError, match=rf"^{re.escape(str(second))}: 'MAP' is already used by game 'maptap'"):
+        load_games(tmp_path)
+
+
+def test_alias_colliding_with_another_games_name(tmp_path: Path) -> None:
+    write(tmp_path, "maptap.yaml", MAPTAP_YAML)
+    write(tmp_path, "other.yaml", "aliases: [maptap]\ndetect: o\nscore: { pattern: '(?P<value>\\d+)' }\n")
+    with pytest.raises(ValueError, match="'maptap' is already used by game 'maptap'"):
+        load_games(tmp_path)
+
+
+def test_game_may_repeat_its_own_name_as_display_name(tmp_path: Path) -> None:
+    write(tmp_path, "maptap.yaml", MAPTAP_YAML + "\n")  # display "MapTap" == name "maptap" ignoring case
+    assert "maptap" in load_games(tmp_path)
+
+
+def test_malformed_yaml_names_the_file(tmp_path: Path) -> None:
+    bad = write(tmp_path, "broken.yaml", "detect: [unclosed\n")
+    with pytest.raises(ValueError, match=rf"^{re.escape(str(bad))}: "):
+        load_games(tmp_path)
+
+
+def test_invalid_game_names_the_file(tmp_path: Path) -> None:
+    bad = write(tmp_path, "bad.yaml", "detect: '('\nscore: { pattern: '(?P<value>\\d+)' }\n")
+    with pytest.raises(ValueError, match=rf"(?s)^{re.escape(str(bad))}: .*detect: invalid regex"):
+        load_games(tmp_path)
+
+
+def test_non_mapping_yaml_rejected(tmp_path: Path) -> None:
+    bad = write(tmp_path, "list.yaml", "- a\n- b\n")
+    with pytest.raises(ValueError, match="expected a mapping"):
+        load_games(tmp_path)
+
+
+def test_missing_directory(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="games directory not found"):
+        load_games(tmp_path / "nope")
+
+
+def test_empty_file_uses_stem_but_is_invalid(tmp_path: Path) -> None:
+    write(tmp_path, "empty.yaml", "")
+    with pytest.raises(ValueError, match="either `parser`"):
+        load_games(tmp_path)

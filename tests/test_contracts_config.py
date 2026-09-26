@@ -8,7 +8,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from leaderboard.config import GameConfig, load_games
+from leaderboard.config import GameConfig
 from leaderboard.parser import ParsedResult, parse_message
 
 PARSING_DOC = Path(__file__).parents[1] / "docs" / "plan" / "01-parsing.md"
@@ -100,7 +100,5 @@ def test_logic_is_stubbed() -> None:
     game = minimal()
     with pytest.raises(NotImplementedError):
         game.value_names()
-    with pytest.raises(NotImplementedError):
-        load_games(Path("."))
     with pytest.raises(NotImplementedError):
         parse_message("", [game])
