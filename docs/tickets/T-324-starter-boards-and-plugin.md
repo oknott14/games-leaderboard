@@ -28,5 +28,9 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] The starter `boards.yaml` and the example plugin load cleanly with the real registries.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] The starter `boards.yaml` and the example plugin load cleanly with the real registries.
+- [x] `uv run pytest` passes; committed and pushed to `master`
+
+## Notes
+
+- Built as proposed in `03-boards-engine.md` §5.8. **Still needs the project owner's OK** on the board list and schedule; it's config, so changes don't need code.

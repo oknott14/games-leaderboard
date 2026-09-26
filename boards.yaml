@@ -1,0 +1,39 @@
+# Saved leaderboards and the auto-post schedule.
+#
+# A board is a composition of four parts (see docs/plan/03-boards-engine.md):
+#   type       how standings are computed (default: ranked)
+#   value      which number from each post (default: score; games may define more, e.g. best_round)
+#   window     which posts count, relative to the anchor date: day, week, month, year, all,
+#              {rolling_days: N}, {last_n: N}
+#   aggregate  how one player's values combine: sum, avg, median, best, worst, max, min, latest,
+#              first, count, stddev, streak, {top_k_avg: {k: N}} (+ plugins)
+# Other options: min_entries, higher_is_better, games: [...], limit, title.
+#
+# Board names are chat commands (`@leaderboard weekly maptap`), so they can't reuse a game, value,
+# window, aggregator or anchor name. Run `leaderboard check` after editing, then restart the bot.
+
+defaults:
+  min_entries: 1
+  limit: 10
+
+boards:
+  daily:         { title: "Daily results",   window: day,   aggregate: best }
+  weekly:        { title: "Weekly total",    window: week,  aggregate: sum }
+  average:       { title: "Best average",    window: month, aggregate: avg, min_entries: 5 }
+  top_score:     { title: "Top score",       window: all,   aggregate: best }
+  recent_form:   { title: "Recent form",     window: { last_n: 5 }, aggregate: avg, min_entries: 3 }
+  latest_scores: { title: "Latest score",    window: week,  aggregate: latest }
+  streaks:       { title: "Streaks",         window: all,   aggregate: streak }
+  consistency:   { title: "Most consistent", window: month, aggregate: stddev, min_entries: 5 }
+  wins:          { title: "Daily wins",      type: daily_wins, window: month }
+  most_improved: { title: "Most improved",   type: improvement, window: week, aggregate: avg }
+  top_round:     { title: "Best round",      value: best_round, window: week, aggregate: best }
+
+# Auto-posts. anchor: today | yesterday | last_week | last_month. Times use TIMEZONE.
+schedule:
+  - cron: "0 9 * * *"          # every morning: yesterday's results
+    boards: [daily]
+    anchor: yesterday
+  - cron: "0 9 * * MON"        # Monday morning: last week's standings
+    boards: [weekly, recent_form, wins]
+    anchor: last_week
