@@ -341,7 +341,7 @@ The single source of truth for who's doing what. Statuses: `Todo` → `In progre
 | [T-406](T-406-format-info-error.md) | format_info (help/games/boards) & format_error | D | S | T-404 | oknott14 | Done |
 | [T-501](T-501-slack-normalize.md) | Slack text normalisation & message conversion | E | S | T-006 | oknott14 | Done |
 | [T-502](T-502-slack-port-core.md) | SlackPort construction, post & display names | E | S | T-501 | oknott14 | Done |
-| [T-503](T-503-slack-history.md) | Slack history fetch with thread replies | E | S | T-502 | | Todo |
+| [T-503](T-503-slack-history.md) | Slack history fetch with thread replies | E | S | T-502 | oknott14 | Done |
 | [T-504](T-504-slack-live-events.md) | Live events, @mentions & /leaderboard | E | M | T-502 | | Todo |
 | [T-505](T-505-slack-manifest.md) | Slack app manifest | E | S | — | | Todo |
 | [T-601](T-601-settings.md) | Settings from environment | F | S | T-006 | | Todo |

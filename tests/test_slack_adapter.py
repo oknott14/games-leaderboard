@@ -200,3 +200,56 @@ def test_display_name_api_error_returns_id_and_retries_later(caplog: pytest.LogC
 )
 def test_special_mentions(raw: str, expected: str) -> None:
     assert normalize_text(raw) == expected
+
+
+# ── fetch_history (T-503) ──
+
+
+class HistoryClient(StubClient):
+    def __init__(self, history_pages: list[list[dict]], replies: dict[str, list[list[dict]]]) -> None:
+        super().__init__()
+        self.history_pages, self.replies = history_pages, replies
+        self.requests: list[tuple[str, dict]] = []
+
+    def _page(self, pages: list[list[dict]], kw: dict) -> dict:
+        index = int(kw.get("cursor", "0"))
+        more = index + 1 < len(pages)
+        return {"messages": pages[index], "response_metadata": {"next_cursor": str(index + 1) if more else ""}}
+
+    def conversations_history(self, **kw: object) -> dict:
+        self.requests.append(("history", kw))
+        return self._page(self.history_pages, kw)
+
+    def conversations_replies(self, **kw: object) -> dict:
+        self.requests.append(("replies", kw))
+        return self._page(self.replies[kw["ts"]], kw)  # type: ignore[index]
+
+
+def msg_raw(ts: str, text: str = "hi", **kw: object) -> dict:
+    return {"type": "message", "user": "U1", "ts": ts, "text": text} | kw
+
+
+def test_fetch_history_pages_and_includes_thread_replies() -> None:
+    client = HistoryClient(
+        history_pages=[
+            [msg_raw("5.0", "newest"), msg_raw("4.0", "parent", reply_count=2, thread_ts="4.0")],
+            [msg_raw("3.0", "old"), msg_raw("2.5", subtype="channel_join")],
+        ],
+        replies={"4.0": [[msg_raw("4.0", "parent", thread_ts="4.0"), msg_raw("4.1", "reply 1", thread_ts="4.0")],
+                         [msg_raw("4.2", "reply 2", thread_ts="4.0")]]},
+    )
+    oldest = datetime(1970, 1, 1, 0, 0, 1, tzinfo=UTC)
+    messages = list(port(client).fetch_history("C1", oldest))
+    assert [(m.message_id, m.text, m.thread_id) for m in messages] == [
+        ("5.0", "newest", None), ("4.0", "parent", None), ("4.1", "reply 1", "4.0"),
+        ("4.2", "reply 2", "4.0"), ("3.0", "old", None),
+    ]
+    history_calls = [kw for kind, kw in client.requests if kind == "history"]
+    assert history_calls[0] == {"channel": "C1", "oldest": "1.000000", "limit": 200}
+    assert history_calls[1]["cursor"] == "1"
+    assert [kw["ts"] for kind, kw in client.requests if kind == "replies"] == ["4.0", "4.0"]
+
+
+def test_fetch_history_empty_channel() -> None:
+    client = HistoryClient(history_pages=[[]], replies={})
+    assert list(port(client).fetch_history("C1", datetime(2026, 9, 1, tzinfo=UTC))) == []

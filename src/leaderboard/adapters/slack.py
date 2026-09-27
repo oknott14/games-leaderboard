@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import re
 import ssl
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -123,7 +123,29 @@ class SlackPort:
         log.info("Slack auth OK: %s as %s", auth.get("team"), auth.get("user"))
 
     def fetch_history(self, channel_id: str, oldest: datetime) -> Iterator[ChatMessage]:
-        raise NotImplementedError  # T-503
+        """Every person's message since `oldest`, including thread replies (order not guaranteed;
+        ingest is idempotent). Known gap: a new reply in a thread whose parent is older than
+        `oldest` is only seen live."""
+        since = f"{oldest.timestamp():.6f}"
+        for raw in self._pages(self.client.conversations_history, channel=channel_id, oldest=since):
+            if (msg := to_message(channel_id, raw)) is not None:
+                yield msg
+            if raw.get("reply_count"):
+                parent = raw["ts"]
+                for reply in self._pages(self.client.conversations_replies, channel=channel_id, ts=parent, oldest=since):
+                    if reply.get("ts") != parent and (msg := to_message(channel_id, reply)) is not None:
+                        yield msg
+
+    @staticmethod
+    def _pages(method: Callable[..., Any], **kwargs: Any) -> Iterator[Mapping[str, Any]]:
+        """All `messages` across a cursor-paginated conversations.* call."""
+        cursor: str | None = None
+        while True:
+            response = method(**kwargs, limit=200, **({"cursor": cursor} if cursor else {}))
+            yield from response.get("messages") or []
+            cursor = (response.get("response_metadata") or {}).get("next_cursor")
+            if not cursor:
+                return
 
     def post(self, channel_id: str, text: str, thread_id: str | None = None) -> None:
         self.client.chat_postMessage(channel=channel_id, text=text, thread_ts=thread_id)
