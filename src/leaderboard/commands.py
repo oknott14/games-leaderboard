@@ -40,10 +40,61 @@ class CommandError:
     suggestions: list[str] = field(default_factory=list)
 
 
+SHORTCUT_BOARDS = {"lastweek": "weekly", "last_week": "weekly", "lastmonth": "average", "last_month": "average"}
+DEFAULT_SHORTCUT = "daily"
+
+
 def parse_command(
     text: str, *, today: date, games: Mapping[str, GameConfig], boards: Mapping[str, BoardConfig]
 ) -> Query | InfoRequest | CommandError:
-    raise NotImplementedError  # T-402, T-403
+    """Parse the words after `@leaderboard` / `/leaderboard`. Words may come in any order."""
+    tokens = text.lower().split()
+    if not tokens:
+        return InfoRequest("help")
+    if tokens[0] in RESERVED_WORDS:
+        if len(tokens) > 1:
+            return CommandError(f"`{tokens[0]}` doesn't take anything else")
+        return InfoRequest(tokens[0])  # type: ignore[arg-type]
+
+    game_tokens = _game_tokens(games)
+    board: BoardConfig | None = None
+    anchor: date | None = None
+    anchor_token: str | None = None
+    selected: list[str] = []
+
+    for token in tokens:
+        if token in RESERVED_WORDS:
+            return CommandError(f"`{token}` has to be on its own")
+        if (resolved := resolve_anchor(token, today)) is not None:
+            if anchor is not None:
+                return CommandError(f"Two dates: `{anchor_token}` and `{token}`; pick one")
+            anchor, anchor_token = resolved, token
+        elif token in boards:
+            if board is not None:
+                return CommandError(f"Two boards: `{board.name}` and `{token}`; pick one")
+            board = boards[token]
+        elif token in game_tokens:
+            if game_tokens[token] not in selected:
+                selected.append(game_tokens[token])
+        else:
+            return CommandError(f"I didn't understand `{token}`")
+
+    if board is None:
+        shortcut = SHORTCUT_BOARDS.get(anchor_token or "", DEFAULT_SHORTCUT)
+        if shortcut not in boards:
+            return CommandError(f"There's no `{shortcut}` board in boards.yaml")
+        board = boards[shortcut]
+    return Query(board, selected or None, anchor or today)
+
+
+def _game_tokens(games: Mapping[str, GameConfig]) -> dict[str, str]:
+    """Every word that names a game (id, alias, one-word display name) → the game's id."""
+    tokens: dict[str, str] = {}
+    for game in games.values():
+        for token in (game.name, *game.aliases, game.display_name or ""):
+            if token:
+                tokens[token.lower()] = game.name
+    return tokens
 
 
 def resolve_anchor(token: str, today: date) -> date | None:

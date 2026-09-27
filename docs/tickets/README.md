@@ -334,7 +334,7 @@ The single source of truth for who's doing what. Statuses: `Todo` → `In progre
 | [T-323](T-323-token-collisions.md) | Command token collision check | C3 | S | T-322 | oknott14 | Done |
 | [T-324](T-324-starter-boards-and-plugin.md) | Starter boards.yaml & example plugin ⚑ | C3 | S | T-322, T-323, T-301, T-303, T-312, T-313, T-314 | oknott14 | Done |
 | [T-401](T-401-resolve-anchor.md) | Anchor resolution | D | S | T-006 | oknott14 | Done |
-| [T-402](T-402-parse-saved-boards.md) | Command parsing: saved boards, anchors, games, shortcuts | D | M | T-401 | | Todo |
+| [T-402](T-402-parse-saved-boards.md) | Command parsing: saved boards, anchors, games, shortcuts | D | M | T-401 | oknott14 | Done |
 | [T-403](T-403-parse-adhoc.md) | Command parsing: ad-hoc boards, params & suggestions | D | M | T-402, T-321 | | Todo |
 | [T-404](T-404-value-and-range-format.md) | Value & date-range formatting | D | S | T-006 | | Todo |
 | [T-405](T-405-format-board.md) | format_board | D | S | T-404 | | Todo |

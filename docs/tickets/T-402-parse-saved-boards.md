@@ -26,5 +26,5 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] The saved-board, anchor, game-filter, shortcut and reserved-word cases in `04-commands-formatting.md` §7.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] The saved-board, anchor, game-filter, shortcut and reserved-word cases in `04-commands-formatting.md` §7.
+- [x] `uv run pytest` passes; committed and pushed to `master`
