@@ -24,6 +24,6 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] Slack accepts the manifest without errors.
-- [ ] Record whether slash commands need `interactivity` (open note in `05-slack-adapter.md`).
-- [ ] Committed and pushed to `master`
+- [ ] Slack accepts the manifest without errors. (To verify when the app is created in T-702.)
+- [ ] Record whether slash commands need `interactivity` (open note in `05-slack-adapter.md`). (Also T-702.)
+- [x] Committed and pushed to `master`

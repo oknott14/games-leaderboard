@@ -1,0 +1,36 @@
+# Slack app manifest. Create the app at https://api.slack.com/apps → "Create New App" →
+# "From a manifest", pick the workspace, and paste this file. See README → "Slack app setup".
+#
+# Keep the app internal: never enable public distribution (distributed non-Marketplace apps get
+# heavily rate-limited history APIs, which breaks the backfill).
+display_information:
+  name: Games Leaderboard
+  description: Tracks daily game results and posts leaderboards
+  background_color: "#2c2d30"
+features:
+  bot_user:
+    display_name: leaderboard
+    always_online: true
+  slash_commands:
+    - command: /leaderboard
+      description: Show game leaderboards
+      usage_hint: "weekly maptap | maptap avg month | help"
+      should_escape: false
+oauth_config:
+  scopes:
+    bot:
+      - groups:history      # read messages in the private channel(s) the bot is invited to
+      - chat:write          # post leaderboards and replies
+      - users:read          # show display names instead of user ids
+      - app_mentions:read   # @leaderboard commands
+      - commands            # /leaderboard
+settings:
+  event_subscriptions:
+    bot_events:
+      - message.groups      # messages, edits and deletions in private channels
+      - app_mention
+  interactivity:
+    is_enabled: true
+  org_deploy_enabled: false
+  socket_mode_enabled: true # outbound websocket only: no public URL needed
+  token_rotation_enabled: false
