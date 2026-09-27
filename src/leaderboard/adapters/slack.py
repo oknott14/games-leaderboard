@@ -5,17 +5,24 @@ See docs/plan/05-slack-adapter.md.
 
 from __future__ import annotations
 
+import logging
 import re
 import ssl
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+from slack_sdk import WebClient
+from slack_sdk.errors import SlackApiError
+from slack_sdk.http_retry.builtin_handlers import RateLimitErrorRetryHandler
+
 from leaderboard.ports import ChatMessage
 
 if TYPE_CHECKING:
     from leaderboard.ports import ChatHandler
 
+
+log = logging.getLogger(__name__)
 
 _ANGLE = re.compile(r"<([^<>|]*)(?:\|([^<>]*))?>")
 
@@ -69,7 +76,8 @@ def to_message(channel_id: str, raw: Mapping[str, Any]) -> ChatMessage | None:
 
 
 class SlackPort:
-    """Satisfies `ChatPort`."""
+    """Satisfies `ChatPort`. One `WebClient` (with proxy, SSL context and rate-limit retries) is
+    shared by history, posting, name lookups and the Bolt app."""
 
     platform = "slack"
 
@@ -80,17 +88,47 @@ class SlackPort:
         *,
         proxy: str | None = None,
         ssl_context: ssl.SSLContext | None = None,
+        client: WebClient | None = None,  # injectable for tests
     ) -> None:
-        raise NotImplementedError  # T-502
+        self.client = client or WebClient(token=bot_token, proxy=proxy, ssl=ssl_context)
+        self.client.retry_handlers.append(RateLimitErrorRetryHandler(max_retry_count=5))  # back off on 429s
+        self._app_token = app_token
+        self._proxy = proxy
+        self._names: dict[str, str] = {}
+
+        try:
+            auth = self.client.auth_test()
+        except SlackApiError as exc:
+            raise RuntimeError(
+                f"Slack auth failed ({exc.response.get('error')}); check SLACK_BOT_TOKEN"
+            ) from exc
+        except OSError as exc:  # includes ssl.SSLError and URLError
+            raise RuntimeError(
+                f"Can't reach Slack: {exc}. On a corporate network, set HTTPS_PROXY and/or "
+                "SSL_CERT_FILE (see README troubleshooting)"
+            ) from exc
+        self.bot_user_id: str = auth["user_id"]
+        log.info("Slack auth OK: %s as %s", auth.get("team"), auth.get("user"))
 
     def fetch_history(self, channel_id: str, oldest: datetime) -> Iterator[ChatMessage]:
         raise NotImplementedError  # T-503
 
     def post(self, channel_id: str, text: str, thread_id: str | None = None) -> None:
-        raise NotImplementedError  # T-502
+        self.client.chat_postMessage(channel=channel_id, text=text, thread_ts=thread_id)
 
     def display_name(self, user_id: str) -> str:
-        raise NotImplementedError  # T-502
+        """Display name → real name → username → the id. Cached; never raises."""
+        if user_id in self._names:
+            return self._names[user_id]
+        try:
+            user = self.client.users_info(user=user_id)["user"]
+        except Exception:
+            log.warning("Couldn't look up Slack user %s; showing the id", user_id, exc_info=True)
+            return user_id  # not cached: retry next time
+        profile = user.get("profile") or {}
+        name = profile.get("display_name") or profile.get("real_name") or user.get("real_name") or user.get("name")
+        self._names[user_id] = name or user_id
+        return self._names[user_id]
 
     def run(self, handler: ChatHandler) -> None:
         raise NotImplementedError  # T-504

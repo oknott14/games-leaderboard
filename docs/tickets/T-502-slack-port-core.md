@@ -25,5 +25,5 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] Tested with a stub client: the fallback order, caching, the id on an API error, and the retry handler attached.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] Tested with a stub client: the fallback order, caching, the id on an API error, and the retry handler attached.
+- [x] `uv run pytest` passes; committed and pushed to `master`

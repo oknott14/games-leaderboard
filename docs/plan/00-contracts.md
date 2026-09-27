@@ -395,7 +395,8 @@ def normalize_text(text: str) -> str: ...
 
 class SlackPort:                         # satisfies ChatPort; platform = "slack"
     def __init__(self, bot_token: str, app_token: str, *, proxy: str | None = None,
-                 ssl_context: ssl.SSLContext | None = None) -> None: ...
+                 ssl_context: ssl.SSLContext | None = None,
+                 client: WebClient | None = None) -> None: ...   # client: injectable for tests
 ```
 
 ### 5.13 `settings.py`, `scheduler.py`, `cli.py` *(bodies: F)*
