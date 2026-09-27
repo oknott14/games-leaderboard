@@ -25,8 +25,8 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] With `FakePort`: one combined post per channel, anchored at the Sunday for `last_week`.
-- [ ] Nothing is posted when all boards are empty.
-- [ ] An exception is logged.
-- [ ] An empty schedule gives `None`.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] With `FakePort`: one combined post per channel, anchored at the Sunday for `last_week`.
+- [x] Nothing is posted when all boards are empty.
+- [x] An exception is logged.
+- [x] An empty schedule gives `None`.
+- [x] `uv run pytest` passes; committed and pushed to `master`

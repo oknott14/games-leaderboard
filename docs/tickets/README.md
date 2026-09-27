@@ -348,7 +348,7 @@ The single source of truth for who's doing what. Statuses: `Todo` → `In progre
 | [T-602](T-602-cli-skeleton-check.md) | CLI skeleton, load_all & `check` | F | S | T-601, T-102, T-322, T-321 | | Todo |
 | [T-603](T-603-cli-offline-commands.md) | CLI: reparse, show, parse | F | S | T-602, T-203, T-206, T-108 | | Todo |
 | [T-604](T-604-cli-run-backfill.md) | CLI: run & backfill (Slack, SSL/proxy, shutdown) | F | M | T-602, T-204, T-503, T-504, T-605 | | Todo |
-| [T-605](T-605-scheduler.md) | Scheduled auto-posts | F | S | T-601, T-205, T-401, T-405 | | Todo |
+| [T-605](T-605-scheduler.md) | Scheduled auto-posts | F | S | T-601, T-205, T-401, T-405 | oknott14 | Done |
 | [T-701](T-701-docker.md) | Dockerfile, compose & .env.example | G | S | T-001 | | Todo |
 | [T-702](T-702-slack-app-setup.md) | Create the Slack app & collect tokens ⚑ | G | S | T-505 | | Todo |
 | [T-703](T-703-work-laptop-checklist.md) | Work-laptop organisational checklist ⚑ | G | S | — | | Todo |
