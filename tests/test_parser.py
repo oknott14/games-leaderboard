@@ -337,3 +337,8 @@ def test_plugin_bad_numbers_are_ignored(plugin_module: str, func: str, why: str,
 def test_plugin_numeric_strings_are_coerced(plugin_module: str) -> None:
     (result,) = parse_message("x", [plugin_game(f"{plugin_module}:string_score")])
     assert result == ParsedResult(game="weird", score=42.0, rounds=(40.0, 2.0), puzzle="7")
+
+
+def test_maptap_rounds_ignore_digits_inside_emoji_codes() -> None:
+    text = "www.maptap.gg September 24\n93:trophy: 88:fire: 71 97:100: 85\nFinal score: 434"
+    assert only(text).rounds == (93.0, 88.0, 71.0, 97.0, 85.0)

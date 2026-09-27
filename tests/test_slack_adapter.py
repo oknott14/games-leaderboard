@@ -383,3 +383,18 @@ def test_run_starts_socket_mode_with_the_proxy(monkeypatch: pytest.MonkeyPatch) 
     slack = SlackPort("xoxb", "xapp-123", proxy="http://proxy:8080", client=StubClient())  # type: ignore[arg-type]
     slack.run(RecordingHandler())
     assert (started["token"], started["proxy"], started["started"]) == ("xapp-123", "http://proxy:8080", True)
+
+
+# ── review round 6 ──
+
+
+@pytest.mark.parametrize(
+    "changed",
+    [{"type": "message", "subtype": "tombstone", "ts": "1.0", "text": "This message was deleted.", "user": "USLACKBOT"},
+     {"type": "message", "ts": "1.0", "bot_id": "B1", "text": "now a bot message"}],
+)
+def test_edit_into_a_non_person_message_removes_it(changed: dict) -> None:
+    handler = RecordingHandler()
+    port().handle_message_event(handler, {"type": "message", "subtype": "message_changed", "channel": "C1",
+                                          "message": changed})
+    assert handler.deleted == [("slack", "C1", "1.0")] and handler.messages == []

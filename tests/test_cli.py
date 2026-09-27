@@ -147,3 +147,22 @@ def test_missing_ssl_cert_file_is_a_clear_error(config: Path, monkeypatch: pytes
     with pytest.raises(SystemExit):
         _ssl_context(Settings.from_env())
     assert "SSL_CERT_FILE" in capsys.readouterr().err
+
+
+# ── review round 6 ──
+
+
+def test_lowercase_log_level_flag(config: Path) -> None:
+    assert main(["--log-level", "debug", "check"]) == 0
+
+
+def test_unknown_log_level_flag_is_a_usage_error(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        main(["--log-level", "loud", "check"])
+    assert exit_info.value.code == 2 and "invalid choice" in capsys.readouterr().err
+
+
+def test_parse_gets_its_arguments_untouched(config: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["--log-level", "INFO", "parse", "--all-games", "TimeGuessr #512 38,532/50,000"]) == 0
+    out = capsys.readouterr().out
+    assert "TimeGuessr    score=38532" in out and "Krillion      (not detected)" in out

@@ -82,7 +82,7 @@ Registers the handlers, then `SocketModeHandler(app, app_token, proxy=…).start
 | Slack event | Action |
 |---|---|
 | `message` (no subtype, or a kept subtype) | `handler.on_message(_to_message(event["channel"], event))` |
-| `message` / `message_changed` | `handler.on_message(_to_message(channel, event["message"]))`, which re-parses the edit |
+| `message` / `message_changed` | `handler.on_message(_to_message(channel, event["message"]))`, which re-parses the edit. If the edited message no longer maps to a person's message (e.g. a thread parent deleted while it has replies becomes a `tombstone`), `on_message_deleted` instead. |
 | `message` / `message_deleted` | `handler.on_message_deleted("slack", channel, event["deleted_ts"])` |
 | `app_mention` | Strip `<@bot_user_id>`. `reply = handler.on_command(text)`. Then `chat.postMessage(channel, reply, thread_ts=event["ts"])` (reply **in a thread**). |
 | `/leaderboard` command | `ack()` immediately, then `reply = handler.on_command(command["text"])`, then `respond(text=reply, response_type="in_channel")` |

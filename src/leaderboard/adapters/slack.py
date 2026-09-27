@@ -203,8 +203,16 @@ class SlackPort:
         if subtype == "message_deleted":
             handler.on_message_deleted(self.platform, channel, event["deleted_ts"])
             return
-        raw = event.get("message") if subtype == "message_changed" else event
-        if raw and (msg := to_message(channel, raw)) is not None:
+        if subtype == "message_changed":
+            changed = event.get("message") or {}
+            msg = to_message(channel, changed)
+            if msg is not None:
+                handler.on_message(msg)
+            elif changed.get("ts"):
+                # e.g. a thread parent deleted while it has replies becomes a "tombstone" edit
+                handler.on_message_deleted(self.platform, channel, changed["ts"])
+            return
+        if (msg := to_message(channel, event)) is not None:
             handler.on_message(msg)
 
     def handle_mention(self, handler: ChatHandler, event: Mapping[str, Any]) -> None:

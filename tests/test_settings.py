@@ -62,3 +62,15 @@ def test_require_names_the_missing_variables() -> None:
     s.require("SLACK_BOT_TOKEN")
     with pytest.raises(SystemExit, match=r"^Missing SLACK_APP_TOKEN, SLACK_CHANNEL_IDS \(see .env.example\)$"):
         s.require("SLACK_BOT_TOKEN", "SLACK_APP_TOKEN", "SLACK_CHANNEL_IDS")
+
+
+@pytest.mark.parametrize("raw", ["²", "٣", "1.5", "-3"])
+def test_backfill_days_rejects_non_ascii_and_non_integers(raw: str) -> None:
+    with pytest.raises(SystemExit, match="BACKFILL_DAYS"):
+        Settings.from_env({"BACKFILL_DAYS": raw})
+
+
+def test_log_level_is_validated() -> None:
+    assert Settings.from_env({"LOG_LEVEL": "debug"}).log_level == "DEBUG"
+    with pytest.raises(SystemExit, match="LOG_LEVEL must be one of"):
+        Settings.from_env({"LOG_LEVEL": "verbose"})

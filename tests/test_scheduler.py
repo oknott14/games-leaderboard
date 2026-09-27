@@ -89,3 +89,40 @@ def test_start_scheduler_creates_one_job_per_entry(service: LeaderboardService) 
         assert (next_run.hour, next_run.minute, str(next_run.tzinfo)) == (9, 0, "America/New_York")
     finally:
         scheduler.shutdown(wait=False)
+
+
+# ── review round 6 ──
+
+
+def test_numeric_crontab_weekday_is_sunday_based(service: LeaderboardService) -> None:
+    scheduler = start_scheduler([entry(["weekly"], cron="0 9 * * 1")], service, FakePort(), service.channel_ids, NY)
+    assert scheduler is not None
+    try:
+        assert scheduler.get_jobs()[0].next_run_time.strftime("%A") == "Monday"
+    finally:
+        scheduler.shutdown(wait=False)
+
+
+def test_late_run_uses_the_scheduled_date() -> None:
+    from leaderboard.crontab import cron_trigger
+    from leaderboard.scheduler import scheduled_date
+
+    trigger = cron_trigger("30 23 * * *", NY)
+    woke = datetime(2026, 9, 25, 0, 15, tzinfo=NY)  # asleep through 23:30 on the 24th
+    assert scheduled_date(trigger, woke) == date(2026, 9, 24)
+    assert scheduled_date(trigger, datetime(2026, 9, 24, 23, 30, 1, tzinfo=NY)) == date(2026, 9, 24)
+
+
+def test_one_failing_channel_does_not_stop_the_others(service: LeaderboardService,
+                                                      caplog: pytest.LogCaptureFixture) -> None:
+    class FlakyPort(FakePort):
+        def post(self, channel_id: str, text: str, thread_id: str | None = None) -> None:
+            if channel_id == "C1":
+                raise RuntimeError("not_in_channel")
+            super().post(channel_id, text, thread_id)
+
+    port = FlakyPort()
+    with caplog.at_level(logging.ERROR):
+        run_schedule_entry(entry(["weekly"]), service, port, frozenset({"C1", "C2"}), date(2026, 9, 24))
+    assert [c for c, _, _ in port.posted] == ["C2"]
+    assert "to C1 failed" in caplog.text

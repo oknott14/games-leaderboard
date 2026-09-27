@@ -58,7 +58,7 @@ _GAMES: dict[str, dict[str, Any]] = {
         "flags": ["IGNORECASE"],
         "detect": r"maptap\.gg",
         "score": {"pattern": r"final score:?\s*(?P<value>[\d,]+)"},
-        "rounds": {"block": r"maptap\.gg[^\n]*\n(?P<block>[^\n]+)", "item": r"(\d+)"},
+        "rounds": {"block": r"maptap\.gg[^\n]*\n(?P<block>[^\n]+)", "item": r"(?<![:\w])(\d+)"},
         "values": _ROUND_VALUES,
     },
     "timeguessr": {

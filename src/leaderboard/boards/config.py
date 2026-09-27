@@ -219,12 +219,12 @@ def _check_board(board: BoardConfig, games: Mapping[str, GameConfig]) -> None:
 
 
 def _check_schedule_entry(entry: ScheduleEntry, boards: Mapping[str, BoardConfig]) -> None:
-    from apscheduler.triggers.cron import CronTrigger
+    from leaderboard.crontab import cron_trigger
 
     unknown = [b for b in entry.boards if b not in boards]
     if unknown:
         raise ValueError(f"unknown board(s) {unknown}")
     try:
-        CronTrigger.from_crontab(entry.cron)
+        cron_trigger(entry.cron)
     except ValueError as exc:
         raise ValueError(f"invalid cron {entry.cron!r}: {exc}") from None

@@ -294,7 +294,7 @@ class BoardConfig(BaseModel):
 AnchorName = Literal["today", "yesterday", "last_week", "last_month"]
 
 class ScheduleEntry(BaseModel):
-    cron: str                            # 5-field crontab
+    cron: str                            # standard 5-field crontab (weekday 0/7 = Sunday)
     boards: list[str]
     anchor: AnchorName = "today"
 

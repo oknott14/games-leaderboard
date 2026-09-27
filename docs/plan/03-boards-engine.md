@@ -213,7 +213,7 @@ schedule:
 1. Merge `defaults` under each board, and set `name` from the key.
 2. `type`, `window` and `aggregate` names exist in the registries, and their params validate.
 3. `value` exists in at least one game (or in every game listed in `games`), and listed games exist.
-4. Each schedule entry's boards exist, and its cron parses (`CronTrigger.from_crontab`).
+4. Each schedule entry's boards exist, and its cron parses (`crontab.cron_trigger`, standard crontab with weekday 0 = Sunday).
 5. **Token collisions:** board names, game names and aliases, value names, aggregator names,
    window names, `ANCHOR_WORDS` and `RESERVED_WORDS` must all be distinct (value names may repeat
    across games). Ad-hoc command parsing (D) depends on this.

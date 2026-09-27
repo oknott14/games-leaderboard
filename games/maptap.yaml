@@ -12,7 +12,7 @@ score:
   pattern: 'final score:?\s*(?P<value>[\d,]+)'
 rounds:
   block: 'maptap\.gg[^\n]*\n(?P<block>[^\n]+)'
-  item: '(\d+)'
+  item: '(?<![:\w])(\d+)'   # not digits inside emoji codes like :100:
 higher_is_better: true
 duplicates: first
 values:

@@ -75,7 +75,7 @@ Global flags: `--log-level`. Logging format: `%(asctime)s %(levelname)s %(name)s
 **`start_scheduler(schedule, service, port, channel_ids, tz)`:**
 - Returns `None` if the schedule is empty.
 - Otherwise it creates a `BackgroundScheduler(timezone=tz)`, and adds one job per entry with
-  `CronTrigger.from_crontab(entry.cron, timezone=tz)`, `misfire_grace_time=3600` and
+  `crontab.cron_trigger(entry.cron, tz)` (standard crontab: weekday 0 = Sunday; APScheduler's own `from_crontab` treats 0 as Monday), `misfire_grace_time=3600` and
   `coalesce=True`. Runs missed while the laptop was asleep are skipped or merged, never posted in
   bulk.
 - The job calls `run_schedule_entry(entry, service, port, channel_ids, today=now(tz).date())`.

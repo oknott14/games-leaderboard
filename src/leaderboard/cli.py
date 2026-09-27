@@ -28,7 +28,7 @@ from leaderboard.formatting import NameFor, composition
 from leaderboard.parse_cli import parse_main
 from leaderboard.parser import load_plugin_parser
 from leaderboard.service import LeaderboardService
-from leaderboard.settings import Settings
+from leaderboard.settings import LOG_LEVELS, Settings
 
 if TYPE_CHECKING:
     from leaderboard.adapters.slack import SlackPort
@@ -41,11 +41,13 @@ LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
-    args, extra = parser.parse_known_args(argv)
-    if args.command == "parse":
-        args.rest = [*extra, *args.rest]  # `parse` passes its own flags (e.g. --all-games) through
-    elif extra:
-        parser.error(f"unrecognized arguments: {' '.join(extra)}")
+    argv = sys.argv[1:] if argv is None else argv
+    if "parse" in argv:  # hand everything after `parse` to parse_main untouched (it has its own flags)
+        split = argv.index("parse") + 1
+        args = parser.parse_args(argv[:split])
+        args.rest = argv[split:]
+    else:
+        args = parser.parse_args(argv)
     if args.command is None:
         parser.print_help()
         return 0
@@ -57,11 +59,12 @@ def main(argv: list[str] | None = None) -> int:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="leaderboard", description="Games leaderboard bot",
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--log-level", help="override LOG_LEVEL (DEBUG, INFO, WARNING, …)")
+    parser.add_argument("--log-level", type=str.upper, choices=LOG_LEVELS, metavar="LEVEL",
+                        help="override LOG_LEVEL (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
     sub = parser.add_subparsers(dest="command", metavar="COMMAND")
     sub.add_parser("check", help="validate games, boards.yaml and plugins, and list what's registered")
-    parse = sub.add_parser("parse", help="show what the game configs extract from a share text", add_help=False)
-    parse.add_argument("rest", nargs=argparse.REMAINDER)
+    sub.add_parser("parse", help="show what the game configs extract from a share text (see `parse --help`)",
+                   add_help=False)
     show = sub.add_parser("show", help="print a board as the bot would reply, e.g. `show weekly maptap`")
     show.add_argument("words", nargs="*")
     sub.add_parser("reparse", help="rebuild all results from stored messages (after editing games/)")

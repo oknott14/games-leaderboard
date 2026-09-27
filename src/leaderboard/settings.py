@@ -9,6 +9,9 @@ from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
+LOG_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
+
+
 @dataclass(frozen=True)
 class Settings:
     slack_bot_token: str
@@ -43,8 +46,12 @@ class Settings:
             raise SystemExit(f"Unknown TIMEZONE {timezone!r}; use an IANA name like America/New_York") from None
 
         backfill = get("BACKFILL_DAYS", "90")
-        if not backfill.isdigit() or int(backfill) < 1:
+        if not backfill.isascii() or not backfill.isdecimal() or int(backfill) < 1:
             raise SystemExit(f"BACKFILL_DAYS must be a whole number of days >= 1, got {backfill!r}")
+
+        log_level = get("LOG_LEVEL", cls.log_level).upper()
+        if log_level not in LOG_LEVELS:
+            raise SystemExit(f"LOG_LEVEL must be one of {', '.join(LOG_LEVELS)}, got {log_level!r}")
 
         cert = get("SSL_CERT_FILE")
         return cls(
@@ -60,7 +67,7 @@ class Settings:
             store_non_game_messages=_boolean("STORE_NON_GAME_MESSAGES", get("STORE_NON_GAME_MESSAGES", "true")),
             https_proxy=get("HTTPS_PROXY") or None,
             ssl_cert_file=Path(cert) if cert else None,
-            log_level=get("LOG_LEVEL", cls.log_level).upper(),
+            log_level=log_level,
         )
 
     def require(self, *names: str) -> None:
