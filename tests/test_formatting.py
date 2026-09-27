@@ -7,7 +7,8 @@ from conftest import make_board, sample_games
 
 from leaderboard.boards.core import DateRange, Standing
 from leaderboard.boards.engine import BoardResult, GameBoardResult
-from leaderboard.formatting import NO_RESULTS, fmt_range, fmt_value, format_board
+from leaderboard.commands import CommandError
+from leaderboard.formatting import NO_RESULTS, fmt_range, fmt_value, format_board, format_error, format_info
 
 
 @pytest.mark.parametrize(
@@ -119,3 +120,64 @@ def test_title_falls_back_to_board_name() -> None:
 
 def test_empty_result() -> None:
     assert format_board(board_result([]), name_for) == f"*Weekly total* — Sep 15–21\n{NO_RESULTS}"
+
+
+# ── format_info / format_error (T-406) ──
+
+
+@pytest.fixture(scope="module")
+def registries() -> None:
+    from leaderboard.boards.registry import load_builtins
+
+    load_builtins()
+
+
+def test_help() -> None:
+    text = format_info("help", GAMES, {})
+    assert text.startswith("*Leaderboard commands*")
+    assert 6 <= text.count("\n• ") + 1 <= 9 and "`maptap avg month`" in text
+
+
+def test_games() -> None:
+    text = format_info("games", GAMES, {})
+    assert "• *MapTap* (`maptap`, `map`): values `score`, `best_round`, `worst_round`, `round_avg`" in text
+    assert "• *TimeGuessr* (`timeguessr`, `tg`, `timeguesser`): values `score`" in text
+    assert format_info("games", {}, {}) == "*Games*\n_No games configured._"
+
+
+def test_boards(registries: None) -> None:
+    boards = {
+        "weekly": make_board(name="weekly", title="Weekly total", window="week", aggregate="sum"),
+        "recent_form": make_board(name="recent_form", window={"last_n": 5}, aggregate="avg"),
+        "wins": make_board(name="wins", title="Daily wins", type="daily_wins", window="month"),
+        "top3": make_board(name="top3", aggregate={"top_k_avg": {"k": 3}}, value="best_round"),
+    }
+    text = format_info("boards", GAMES, boards)
+    assert "• `weekly`: Weekly total (week · sum · score)" in text
+    assert "• `recent_form`: recent_form (last_n 5 · avg · score)" in text
+    assert "• `wins`: Daily wins (daily_wins · month · score)" in text
+    assert "• `top3`: top3 (week · top_k_avg k=3 · best_round)" in text
+    assert "*Aggregators*" in text and "• `top_k_avg` (k): Average of the k best values" in text
+    assert "*Windows*" in text and "• `last_n` (n):" in text
+    assert "*Board types*" in text and "• `improvement`:" in text
+
+
+def test_boards_lists_plugin_components(registries: None) -> None:
+    from leaderboard.boards.registry import AGGREGATORS, aggregator
+
+    try:
+        aggregator("t_plugin_agg", description="From a plugin")(lambda e, c: None)
+        assert "• `t_plugin_agg`: From a plugin" in format_info("boards", GAMES, {})
+    finally:
+        AGGREGATORS.pop("t_plugin_agg", None)
+
+
+def test_boards_when_none_saved(registries: None) -> None:
+    assert "_None; build one on the fly" in format_info("boards", GAMES, {})
+
+
+def test_format_error() -> None:
+    assert format_error(CommandError("I didn't understand `wekly`", ["weekly", "week"])) == (
+        "I didn't understand `wekly`\nDid you mean: `weekly`, `week`?\nTry `help`."
+    )
+    assert format_error(CommandError("Two dates")) == "Two dates\nTry `help`."

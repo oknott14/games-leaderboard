@@ -25,9 +25,9 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] `boards` output includes a plugin-registered aggregator.
-- [ ] The error text includes the suggestions.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] `boards` output includes a plugin-registered aggregator.
+- [x] The error text includes the suggestions.
+- [x] `uv run pytest` passes; committed and pushed to `master`
 
 ## Notes
 

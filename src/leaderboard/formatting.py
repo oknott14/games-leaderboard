@@ -9,8 +9,10 @@ from typing import TYPE_CHECKING, TypeAlias
 
 from leaderboard.boards.core import DateRange, Standing
 
+from leaderboard.boards.config import POSITIONAL
+
 if TYPE_CHECKING:
-    from leaderboard.boards.config import BoardConfig
+    from leaderboard.boards.config import BoardConfig, ComponentRef
     from leaderboard.boards.engine import BoardResult
     from leaderboard.commands import CommandError
     from leaderboard.config import GameConfig
@@ -82,9 +84,63 @@ def _standing_line(standing: Standing, unit: str | None, name_for: NameFor) -> s
     return line
 
 
+HELP = """*Leaderboard commands* (words can go in any order)
+• `today` · `yesterday` · `2026-09-20`: daily results
+• `weekly` · `weekly lastweek` · `average lastmonth`: any saved board (see `boards`)
+• `weekly maptap tg`: only some games (see `games`)
+• `maptap avg month`: build a board on the fly from a value, aggregator and window
+• `krillion best_round best all`: the all-time best single round
+• `tg median last_n=10`: parameters as `name=value`
+• `games` · `boards` · `help`"""
+
+
 def format_info(topic: str, games: Mapping[str, GameConfig], boards: Mapping[str, BoardConfig]) -> str:
-    raise NotImplementedError  # T-406
+    if topic == "games":
+        return _format_games(games)
+    if topic == "boards":
+        return _format_boards(boards)
+    return HELP
 
 
 def format_error(err: CommandError) -> str:
-    raise NotImplementedError  # T-406
+    text = err.message
+    if err.suggestions:
+        text += "\nDid you mean: " + ", ".join(f"`{s}`" for s in err.suggestions) + "?"
+    return text + "\nTry `help`."
+
+
+def _format_games(games: Mapping[str, GameConfig]) -> str:
+    if not games:
+        return "*Games*\n_No games configured._"
+    lines = ["*Games*"]
+    for game in games.values():
+        names = ", ".join(f"`{n}`" for n in (game.name, *game.aliases))
+        lines.append(f"• *{game.label}* ({names}): values {', '.join(f'`{v}`' for v in game.value_names())}")
+    return "\n".join(lines)
+
+
+def _format_boards(boards: Mapping[str, BoardConfig]) -> str:
+    from leaderboard.boards.registry import AGGREGATORS, BOARD_TYPES, WINDOWS  # filled at startup
+
+    lines = ["*Saved boards*"]
+    lines += [f"• `{name}`: {board.title or name} ({_composition(board)})" for name, board in boards.items()]
+    if not boards:
+        lines.append("_None; build one on the fly, e.g._ `maptap avg month`")
+    for heading, table in (("Aggregators", AGGREGATORS), ("Windows", WINDOWS), ("Board types", BOARD_TYPES)):
+        lines.append(f"\n*{heading}*")
+        for name, reg in table.items():
+            fields = f" ({', '.join(reg.params.model_fields)})" if reg.params else ""
+            lines.append(f"• `{name}`{fields}: {reg.description}" if reg.description else f"• `{name}`{fields}")
+    return "\n".join(lines)
+
+
+def _composition(board: BoardConfig) -> str:
+    """`week · sum · score`, `last_n 5 · avg · score`, `daily_wins · month · score`."""
+    def ref(component: ComponentRef) -> str:
+        params = " ".join(str(v) if k == POSITIONAL else f"{k}={v}" for k, v in component.params.items())
+        return f"{component.name} {params}" if params else component.name
+
+    parts = [ref(board.window), ref(board.aggregate), board.value]
+    if board.type.name != "ranked":
+        parts = [ref(board.type), ref(board.window), board.value]
+    return " · ".join(parts)
