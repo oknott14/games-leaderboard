@@ -125,7 +125,7 @@ def _format_games(games: Mapping[str, GameConfig]) -> str:
 
 def _format_boards(boards: Mapping[str, BoardConfig]) -> str:
     lines = ["*Saved boards*"]
-    lines += [f"• `{name}`: {board.title or name} ({_composition(board)})" for name, board in boards.items()]
+    lines += [f"• `{name}`: {board.title or name} ({composition(board)})" for name, board in boards.items()]
     if not boards:
         lines.append("_None; build one on the fly, e.g._ `maptap avg month`")
     for heading, table in (("Aggregators", AGGREGATORS), ("Windows", WINDOWS), ("Board types", BOARD_TYPES)):
@@ -136,7 +136,7 @@ def _format_boards(boards: Mapping[str, BoardConfig]) -> str:
     return "\n".join(lines)
 
 
-def _composition(board: BoardConfig) -> str:
+def composition(board: BoardConfig) -> str:
     """`week · sum · score`, `last_n 5 · avg · score`, `daily_wins · month · score`,
     `improvement · week · avg · score` (other types show the aggregator only if it was set)."""
     if board.type.name == "ranked":
