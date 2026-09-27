@@ -15,15 +15,24 @@ from __future__ import annotations
 
 import argparse
 import logging
+import ssl
 import sys
 from collections.abc import Callable, Mapping
+from typing import TYPE_CHECKING
 
 from leaderboard.boards.config import BoardsFile, load_boards
 from leaderboard.boards.registry import AGGREGATORS, BOARD_TYPES, WINDOWS, load_builtins, load_plugins
 from leaderboard.config import GameConfig, load_games
-from leaderboard.formatting import composition
+from leaderboard.db import make_session_factory
+from leaderboard.formatting import NameFor, composition
+from leaderboard.parse_cli import parse_main
 from leaderboard.parser import load_plugin_parser
+from leaderboard.service import LeaderboardService
 from leaderboard.settings import Settings
+
+if TYPE_CHECKING:
+    from leaderboard.adapters.slack import SlackPort
+    from leaderboard.ports import ChatPort
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +41,11 @@ LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
-    args = parser.parse_args(argv)
+    args, extra = parser.parse_known_args(argv)
+    if args.command == "parse":
+        args.rest = [*extra, *args.rest]  # `parse` passes its own flags (e.g. --all-games) through
+    elif extra:
+        parser.error(f"unrecognized arguments: {' '.join(extra)}")
     if args.command is None:
         parser.print_help()
         return 0
@@ -47,6 +60,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--log-level", help="override LOG_LEVEL (DEBUG, INFO, WARNING, …)")
     sub = parser.add_subparsers(dest="command", metavar="COMMAND")
     sub.add_parser("check", help="validate games, boards.yaml and plugins, and list what's registered")
+    parse = sub.add_parser("parse", help="show what the game configs extract from a share text", add_help=False)
+    parse.add_argument("rest", nargs=argparse.REMAINDER)
+    show = sub.add_parser("show", help="print a board as the bot would reply, e.g. `show weekly maptap`")
+    show.add_argument("words", nargs="*")
+    sub.add_parser("reparse", help="rebuild all results from stored messages (after editing games/)")
     return parser
 
 
@@ -94,6 +112,64 @@ def cmd_check(args: argparse.Namespace, settings: Settings) -> int:
     return 0
 
 
+def cmd_parse(args: argparse.Namespace, settings: Settings) -> int:
+    defaults = ["--games-dir", str(settings.games_dir), "--plugins-dir", str(settings.plugins_dir)]
+    return parse_main([*defaults, *args.rest])  # flags given explicitly come later and win
+
+
+def cmd_show(args: argparse.Namespace, settings: Settings) -> int:
+    games, boards, _ = load_all(settings)
+    name_for: NameFor = lambda platform, user_id: user_id  # noqa: E731
+    if settings.slack_bot_token:
+        name_for = names_from(_slack_port(settings))
+    print(make_service(settings, games, boards, name_for).on_command(" ".join(args.words)))
+    return 0
+
+
+def cmd_reparse(args: argparse.Namespace, settings: Settings) -> int:
+    games, boards, _ = load_all(settings)
+    count = make_service(settings, games, boards, lambda platform, user_id: user_id).reparse()
+    print(f"Reparsed stored messages: {count} results")
+    return 0
+
+
+def names_from(port: ChatPort) -> NameFor:
+    """Adapt a port's `display_name(user_id)` to the service's `name_for(platform, user_id)`."""
+    return lambda platform, user_id: port.display_name(user_id)
+
+
+def make_service(settings: Settings, games: Mapping[str, GameConfig], boards: BoardsFile,
+                 name_for: NameFor) -> LeaderboardService:
+    return LeaderboardService(
+        make_session_factory(settings.database_url), games, boards, settings.timezone, settings.channel_ids,
+        name_for, store_non_game=settings.store_non_game_messages,
+    )
+
+
+def _slack_port(settings: Settings) -> SlackPort:
+    from leaderboard.adapters.slack import SlackPort  # only commands that talk to Slack import it
+
+    try:
+        return SlackPort(settings.slack_bot_token, settings.slack_app_token, proxy=settings.https_proxy,
+                         ssl_context=_ssl_context(settings))
+    except RuntimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        raise SystemExit(1) from None
+
+
+def _ssl_context(settings: Settings) -> ssl.SSLContext | None:
+    """Trust the corporate root CA in SSL_CERT_FILE (for TLS-inspecting proxies)."""
+    if settings.ssl_cert_file is None:
+        return None
+    if not settings.ssl_cert_file.is_file():
+        print(f"error: SSL_CERT_FILE {settings.ssl_cert_file} not found", file=sys.stderr)
+        raise SystemExit(2)
+    return ssl.create_default_context(cafile=str(settings.ssl_cert_file))
+
+
 COMMANDS: dict[str, Callable[[argparse.Namespace, Settings], int]] = {
     "check": cmd_check,
+    "parse": cmd_parse,
+    "show": cmd_show,
+    "reparse": cmd_reparse,
 }

@@ -61,7 +61,7 @@ half-configured.
 
 | Command | Needs Slack | Behaviour |
 |---|---|---|
-| `run` | yes | `load_all`, then build the SSL context (from `SSL_CERT_FILE` if set), then `SlackPort`, then `LeaderboardService` (with `name_for = port.display_name`). Then `reparse()` (logs the count), `backfill()` (logs the count), `start_scheduler(...)`, and `port.run(service)`, which blocks. `SIGTERM` or `SIGINT` shuts the scheduler down and exits 0. |
+| `run` | yes | `load_all`, then build the SSL context (from `SSL_CERT_FILE` if set), then `SlackPort`, then `LeaderboardService` (with `name_for = names_from(port)`, which adapts `display_name(user_id)` to `name_for(platform, user_id)`). Then `reparse()` (logs the count), `backfill()` (logs the count), `start_scheduler(...)`, and `port.run(service)`, which blocks. `SIGTERM` or `SIGINT` shuts the scheduler down and exits 0. |
 | `backfill [--days N]` | yes | As in `run` up to the backfill, with `since = now − N days` when `--days` is given. Then exits. |
 | `reparse` | no | `load_all`, then the service with no port, then `reparse()`. Prints the count. |
 | `show <words…>` | optional | Prints `service.on_command(" ".join(words))`. Uses Slack names when a token is set, otherwise user ids. |

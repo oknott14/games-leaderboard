@@ -24,7 +24,7 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] `show weekly` against a temporary DB prints a board.
-- [ ] `parse` delegates correctly.
-- [ ] `reparse` prints the count.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] `show weekly` against a temporary DB prints a board.
+- [x] `parse` delegates correctly.
+- [x] `reparse` prints the count.
+- [x] `uv run pytest` passes; committed and pushed to `master`

@@ -70,3 +70,80 @@ def test_log_level_flag(config: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(logging, "basicConfig", lambda **kw: seen.update(kw))
     main(["--log-level", "DEBUG", "check"])
     assert seen["level"] == "DEBUG"
+
+
+# ── T-603: parse, show, reparse ──
+
+
+def ingest(config: Path, *texts: str) -> None:
+    """Store messages directly in the configured database, as the bot would."""
+    from datetime import UTC, datetime, timedelta
+
+    from leaderboard.cli import load_all, make_service
+    from leaderboard.ports import ChatMessage
+    from leaderboard.settings import Settings
+
+    settings = Settings.from_env()
+    games, boards, _ = load_all(settings)
+    service = make_service(settings, games, boards, lambda p, u: u)
+    service.channel_ids = frozenset({"C1"})
+    for i, text in enumerate(texts):
+        at = datetime.now(UTC) - timedelta(minutes=len(texts) - i)
+        service.on_message(ChatMessage("slack", "C1", str(i), f"U{i}", text, at))
+
+
+def test_parse_uses_the_configured_games(config: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["parse", "Krillion #72 🦐\n505\n\n🏮🌟🐟🏮🏮🦑🦑"]) == 0
+    assert capsys.readouterr().out.startswith("Krillion      score=505  rounds=[85, 100, 30, 85, 85, 60, 60]  puzzle=72")
+
+
+def test_parse_passes_its_own_flags_through(config: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["parse", "--all-games", "nothing here"]) == 0
+    assert "(not detected)" in capsys.readouterr().out
+
+
+def test_show_prints_the_board_with_user_ids_offline(config: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    ingest(config, "Krillion #72 🦐\n505\n\n🏮🌟🐟🏮🏮🦑🦑")
+    assert main(["show", "daily", "krillion"]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("*Daily results* — ") and "🥇 U0 — 505" in out
+
+
+def test_show_ad_hoc_and_errors(config: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    ingest(config, "Krillion #72 🦐\n505\n\n🏮🌟🐟🏮🏮🦑🦑")
+    main(["show", "krillion", "best_round", "best", "all"])
+    assert "🥇 U0 — 100" in capsys.readouterr().out
+    main(["show", "wekly"])
+    assert "Did you mean: `weekly`" in capsys.readouterr().out
+
+
+def test_show_uses_slack_names_when_a_token_is_set(config: Path, monkeypatch: pytest.MonkeyPatch,
+                                                   capsys: pytest.CaptureFixture[str]) -> None:
+    from leaderboard import cli
+
+    class FakePort:
+        def display_name(self, user_id: str) -> str:
+            return {"U0": "Alice"}.get(user_id, user_id)
+
+    ingest(config, "Krillion #72 🦐\n505\n\n🏮🌟🐟🏮🏮🦑🦑")
+    monkeypatch.setenv("SLACK_BOT_TOKEN", "xoxb-test")
+    monkeypatch.setattr(cli, "_slack_port", lambda settings: FakePort())
+    main(["show", "daily"])
+    assert "🥇 Alice — 505" in capsys.readouterr().out
+
+
+def test_reparse_prints_the_count(config: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    ingest(config, "Krillion #72 🦐\n505\n\n🏮🌟🐟🏮🏮🦑🦑", "lunch?", "TimeGuessr #512 38,532/50,000")
+    assert main(["reparse"]) == 0
+    assert capsys.readouterr().out.strip() == "Reparsed stored messages: 2 results"
+
+
+def test_missing_ssl_cert_file_is_a_clear_error(config: Path, monkeypatch: pytest.MonkeyPatch,
+                                                capsys: pytest.CaptureFixture[str]) -> None:
+    from leaderboard.cli import _ssl_context
+    from leaderboard.settings import Settings
+
+    monkeypatch.setenv("SSL_CERT_FILE", str(config / "nope.pem"))
+    with pytest.raises(SystemExit):
+        _ssl_context(Settings.from_env())
+    assert "SSL_CERT_FILE" in capsys.readouterr().err
