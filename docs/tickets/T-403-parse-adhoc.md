@@ -27,8 +27,8 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] The ad-hoc, params, mixing-error and `wekly`-suggestion cases in `04-commands-formatting.md` §7.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] The ad-hoc, params, mixing-error and `wekly`-suggestion cases in `04-commands-formatting.md` §7.
+- [x] `uv run pytest` passes; committed and pushed to `master`
 
 ## Notes
 

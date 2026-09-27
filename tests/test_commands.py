@@ -114,3 +114,78 @@ def test_missing_shortcut_board_is_an_error() -> None:
 def test_errors(text: str, message: str) -> None:
     result = parse(text)
     assert isinstance(result, CommandError) and message in result.message
+
+
+# ── ad-hoc boards, params, suggestions (T-403) ──
+
+
+def adhoc(text: str):  # noqa: ANN201
+    result = parse(text)
+    assert isinstance(result, Query), result
+    b = result.board
+    return b.value, b.window.name, b.window.params, b.aggregate.name, b.aggregate.params, result.games, b.title
+
+
+def error(text: str) -> CommandError:
+    result = parse(text)
+    assert isinstance(result, CommandError), result
+    return result
+
+
+def test_adhoc_basic() -> None:
+    assert adhoc("maptap avg month") == ("score", "month", {}, "avg", {}, ["maptap"], "MapTap · avg · month")
+
+
+def test_adhoc_defaults_and_type() -> None:
+    result = parse("month")
+    assert isinstance(result, Query)
+    assert (result.board.name, result.board.type.name, result.board.value, result.board.aggregate.name) == \
+        ("adhoc", "ranked", "score", "best")
+    assert adhoc("avg")[1] == "week"
+
+
+def test_adhoc_value() -> None:
+    assert adhoc("maptap best_round best all")[:4] == ("best_round", "all", {}, "best")
+    assert adhoc("maptap best_round best all")[-1] == "MapTap · best_round · best · all"
+
+
+def test_component_param_selects_and_sets_the_component() -> None:
+    value, window, wparams, agg, aparams, games, title = adhoc("tg median last_n=10")
+    assert (window, wparams, agg, games) == ("last_n", {"__positional__": 10}, "median", ["timeguessr"])
+    assert title == "TimeGuessr · median · last_n 10"
+    assert adhoc("top_k_avg=3 month")[3:5] == ("top_k_avg", {"__positional__": 3})
+
+
+def test_field_param_attaches_to_the_selected_component() -> None:
+    assert adhoc("top_k_avg k=2 all")[3:5] == ("top_k_avg", {"k": 2})
+    assert adhoc("last_n n=4")[1:3] == ("last_n", {"n": 4})
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        ("tg median last_n=abc", "last_n: invalid parameters"),
+        ("tg median last_n=0", "last_n: invalid parameters"),
+        ("avg k=3", "No selected part takes a `k` parameter"),
+        ("weekly avg", "either a saved board or ad-hoc parts"),
+        ("weekly last_n=3", "either a saved board or ad-hoc parts"),
+        ("avg sum", "Two aggregators"),
+        ("month week", "Two windows"),
+        ("timeguessr best_round", "`best_round` isn't tracked for TimeGuessr"),
+        ("last_n=", "I didn't understand `last_n=`"),
+    ],
+)
+def test_adhoc_errors(text: str, message: str) -> None:
+    assert message in error(text).message
+
+
+def test_saved_board_with_a_field_param_is_an_error() -> None:
+    assert error("weekly k=3").message == "No selected part takes a `k` parameter"
+
+
+def test_suggestions() -> None:
+    err = error("wekly")
+    assert err.message == "I didn't understand `wekly`"
+    assert "weekly" in err.suggestions and len(err.suggestions) <= 3
+    assert "maptap" in error("maptapp").suggestions
+    assert error("xyzzy").suggestions == []
