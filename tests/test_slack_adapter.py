@@ -5,6 +5,7 @@ import ssl
 from datetime import UTC, datetime
 
 import pytest
+from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from slack_sdk.http_retry.builtin_handlers import RateLimitErrorRetryHandler
 
@@ -88,11 +89,12 @@ def test_missing_text_is_empty() -> None:
 # ── SlackPort construction, post, display_name (T-502) ──
 
 
-class StubClient:
-    """Just enough of slack_sdk.WebClient."""
+class StubClient(WebClient):
+    """A WebClient (Bolt insists on the real type) whose API methods never touch the network."""
 
     def __init__(self, *, auth: object = None, users: dict | None = None) -> None:
-        self.retry_handlers: list = []
+        super().__init__(token="xoxb-test")
+        self.retry_handlers = []
         self.auth = auth if auth is not None else {"ok": True, "user_id": "UBOT", "team": "Acme", "user": "leaderboard"}
         self.users = users or {}
         self.posted: list[dict] = []
@@ -253,3 +255,131 @@ def test_fetch_history_pages_and_includes_thread_replies() -> None:
 def test_fetch_history_empty_channel() -> None:
     client = HistoryClient(history_pages=[[]], replies={})
     assert list(port(client).fetch_history("C1", datetime(2026, 9, 1, tzinfo=UTC))) == []
+
+
+# ── live events, mentions, /leaderboard (T-504) ──
+
+
+class RecordingHandler:
+    def __init__(self, reply: str = "the board", fail: bool = False) -> None:
+        self.messages: list = []
+        self.deleted: list = []
+        self.commands: list[str] = []
+        self.reply, self.fail = reply, fail
+
+    def on_message(self, msg) -> None:  # noqa: ANN001
+        if self.fail:
+            raise RuntimeError("handler bug")
+        self.messages.append(msg)
+
+    def on_message_deleted(self, platform: str, channel_id: str, message_id: str) -> None:
+        self.deleted.append((platform, channel_id, message_id))
+
+    def on_command(self, text: str) -> str:
+        self.commands.append(text)
+        return self.reply
+
+
+def test_new_message_event() -> None:
+    handler = RecordingHandler()
+    port().handle_message_event(handler, msg_raw("1.0", "Krillion #72", channel="C1"))
+    (msg,) = handler.messages
+    assert (msg.channel_id, msg.message_id, msg.text) == ("C1", "1.0", "Krillion #72")
+
+
+def test_edit_event_uses_the_new_text() -> None:
+    handler = RecordingHandler()
+    event = {"type": "message", "subtype": "message_changed", "channel": "C1",
+             "message": msg_raw("1.0", "Krillion #72 (fixed)"), "previous_message": msg_raw("1.0", "Krillion #72")}
+    port().handle_message_event(handler, event)
+    assert [m.text for m in handler.messages] == ["Krillion #72 (fixed)"]
+
+
+def test_delete_event() -> None:
+    handler = RecordingHandler()
+    port().handle_message_event(handler, {"type": "message", "subtype": "message_deleted", "channel": "C1",
+                                          "deleted_ts": "1.0"})
+    assert handler.deleted == [("slack", "C1", "1.0")] and handler.messages == []
+
+
+def test_system_and_bot_events_are_ignored() -> None:
+    handler = RecordingHandler()
+    port().handle_message_event(handler, msg_raw("1.0", subtype="channel_join", channel="C1"))
+    port().handle_message_event(handler, msg_raw("2.0", bot_id="B1", channel="C1"))
+    assert handler.messages == []
+
+
+def test_mention_strips_the_bot_and_replies_in_a_thread() -> None:
+    client, handler = StubClient(), RecordingHandler("🥇 Alice")
+    port(client).handle_mention(handler, {"type": "app_mention", "channel": "C1", "ts": "5.0", "user": "U1",
+                                          "text": "<@UBOT> weekly <http://maptap.gg|maptap>"})
+    assert handler.commands == ["weekly maptap"]
+    assert client.posted == [{"channel": "C1", "text": "🥇 Alice", "thread_ts": "5.0"}]
+
+
+def test_mention_inside_a_thread_replies_in_that_thread() -> None:
+    client = StubClient()
+    port(client).handle_mention(RecordingHandler(), {"channel": "C1", "ts": "6.0", "thread_ts": "4.0",
+                                                     "text": "<@UBOT|leaderboard> help"})
+    assert client.posted[0]["thread_ts"] == "4.0"
+
+
+def test_slash_command_responds_in_channel() -> None:
+    responses: list[dict] = []
+    handler = RecordingHandler("the board")
+    port().handle_command(handler, {"command": "/leaderboard", "text": " weekly  maptap "},
+                          lambda **kw: responses.append(kw))
+    assert handler.commands == ["weekly  maptap"]  # passed through as typed; the parser splits on whitespace
+    assert responses == [{"text": "the board", "response_type": "in_channel"}]
+
+
+def test_handler_exceptions_are_logged_not_raised(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.ERROR):
+        SlackPort._safely(port().handle_message_event, RecordingHandler(fail=True), msg_raw("1.0", channel="C1"))
+    assert "Error handling a Slack event in handle_message_event" in caplog.text
+
+
+# ── the wired Bolt app, dispatched offline ──
+
+
+def dispatch(app, event: dict) -> None:  # noqa: ANN001
+    import json
+    import time
+
+    from slack_bolt.request import BoltRequest
+
+    body = {"type": "event_callback", "team_id": "T1", "event": event, "event_id": "Ev1", "event_time": 1}
+    response = app.dispatch(BoltRequest(body=json.dumps(body), mode="socket_mode"))
+    assert response.status == 200
+    time.sleep(0.2)  # Bolt runs listeners on a worker thread after acknowledging
+
+
+def test_bolt_app_routes_message_events() -> None:
+    handler, slack = RecordingHandler(), port()
+    dispatch(slack.build_app(handler), msg_raw("1.0", "Krillion #72", channel="C1"))
+    assert [m.text for m in handler.messages] == ["Krillion #72"]
+
+
+def test_bolt_app_routes_mentions() -> None:
+    client, handler = StubClient(), RecordingHandler("reply")
+    slack = port(client)
+    dispatch(slack.build_app(handler), {"type": "app_mention", "channel": "C1", "ts": "5.0", "user": "U1",
+                                        "text": "<@UBOT> help"})
+    assert handler.commands == ["help"]
+    assert client.posted == [{"channel": "C1", "text": "reply", "thread_ts": "5.0"}]
+
+
+def test_run_starts_socket_mode_with_the_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
+    started: dict = {}
+
+    class FakeSocketMode:
+        def __init__(self, app, app_token: str, proxy: str | None = None) -> None:  # noqa: ANN001
+            started.update(app=app, token=app_token, proxy=proxy)
+
+        def start(self) -> None:
+            started["started"] = True
+
+    monkeypatch.setattr(slack_module, "SocketModeHandler", FakeSocketMode)
+    slack = SlackPort("xoxb", "xapp-123", proxy="http://proxy:8080", client=StubClient())  # type: ignore[arg-type]
+    slack.run(RecordingHandler())
+    assert (started["token"], started["proxy"], started["started"]) == ("xapp-123", "http://proxy:8080", True)

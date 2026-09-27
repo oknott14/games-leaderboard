@@ -12,6 +12,9 @@ from collections.abc import Callable, Iterator, Mapping
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+from slack_bolt import App
+from slack_bolt.adapter.socket_mode import SocketModeHandler
+from slack_bolt.authorization import AuthorizeResult
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from slack_sdk.http_retry.builtin_handlers import RateLimitErrorRetryHandler
@@ -120,6 +123,10 @@ class SlackPort:
                 "SSL_CERT_FILE (see README troubleshooting)"
             ) from exc
         self.bot_user_id: str = auth["user_id"]
+        self._auth = AuthorizeResult(
+            enterprise_id=auth.get("enterprise_id"), team_id=auth.get("team_id"), team=auth.get("team"),
+            bot_user_id=auth["user_id"], bot_id=auth.get("bot_id"), bot_token=bot_token,
+        )
         log.info("Slack auth OK: %s as %s", auth.get("team"), auth.get("user"))
 
     def fetch_history(self, channel_id: str, oldest: datetime) -> Iterator[ChatMessage]:
@@ -164,5 +171,57 @@ class SlackPort:
         self._names[user_id] = name or user_id
         return self._names[user_id]
 
+    # ── live events ──
+
+    def build_app(self, handler: ChatHandler) -> App:
+        """A Bolt app wired to `handler`. Authorisation reuses the startup auth.test result."""
+        app = App(client=self.client, authorize=lambda **_: self._auth)
+
+        @app.event("message")
+        def on_message(event: dict[str, Any]) -> None:
+            self._safely(self.handle_message_event, handler, event)
+
+        @app.event("app_mention")
+        def on_mention(event: dict[str, Any]) -> None:
+            self._safely(self.handle_mention, handler, event)
+
+        @app.command("/leaderboard")
+        def on_command(ack: Callable[[], None], command: dict[str, Any], respond: Callable[..., Any]) -> None:
+            ack()  # within Slack's 3-second limit, before doing any work
+            self._safely(self.handle_command, handler, command, respond)
+
+        return app
+
     def run(self, handler: ChatHandler) -> None:
-        raise NotImplementedError  # T-504
+        """Connect over Socket Mode and dispatch events to `handler` until stopped. Blocks."""
+        SocketModeHandler(self.build_app(handler), self._app_token, proxy=self._proxy).start()
+
+    def handle_message_event(self, handler: ChatHandler, event: Mapping[str, Any]) -> None:
+        """New messages and edits → `on_message`; deletions → `on_message_deleted`."""
+        channel = event.get("channel", "")
+        subtype = event.get("subtype")
+        if subtype == "message_deleted":
+            handler.on_message_deleted(self.platform, channel, event["deleted_ts"])
+            return
+        raw = event.get("message") if subtype == "message_changed" else event
+        if raw and (msg := to_message(channel, raw)) is not None:
+            handler.on_message(msg)
+
+    def handle_mention(self, handler: ChatHandler, event: Mapping[str, Any]) -> None:
+        """`@leaderboard weekly` → the reply, in a thread under the mention."""
+        text = re.sub(rf"<@{re.escape(self.bot_user_id)}(\|[^>]*)?>", " ", event.get("text") or "")
+        reply = handler.on_command(normalize_text(text).strip())
+        self.post(event["channel"], reply, thread_id=event.get("thread_ts") or event["ts"])
+
+    def handle_command(self, handler: ChatHandler, command: Mapping[str, Any], respond: Callable[..., Any]) -> None:
+        """`/leaderboard weekly` → the reply, visible to the whole channel."""
+        reply = handler.on_command(normalize_text(command.get("text") or "").strip())
+        respond(text=reply, response_type="in_channel")
+
+    @staticmethod
+    def _safely(func: Callable[..., None], *args: Any) -> None:
+        """One bad event must never take down the socket."""
+        try:
+            func(*args)
+        except Exception:
+            log.exception("Error handling a Slack event in %s", func.__name__)
