@@ -189,3 +189,23 @@ def test_suggestions() -> None:
     assert "weekly" in err.suggestions and len(err.suggestions) <= 3
     assert "maptap" in error("maptapp").suggestions
     assert error("xyzzy").suggestions == []
+
+
+# ── review round 5 ──
+
+
+def test_param_word_order_does_not_matter() -> None:
+    from pydantic import BaseModel
+
+    from leaderboard.boards.registry import AGGREGATORS, aggregator
+
+    class AB(BaseModel):
+        a: int = 1
+        b: int = 2
+
+    aggregator("t_ab", params=AB)(lambda e, c: None)
+    try:
+        forward, backward = adhoc("maptap t_ab=5 b=7"), adhoc("maptap b=7 t_ab=5")
+        assert forward[3:5] == backward[3:5] == ("t_ab", {"__positional__": 5, "b": 7})
+    finally:
+        AGGREGATORS.pop("t_ab", None)

@@ -207,7 +207,7 @@ def test_invalid_game_names_the_file(tmp_path: Path) -> None:
 
 def test_non_mapping_yaml_rejected(tmp_path: Path) -> None:
     bad = write(tmp_path, "list.yaml", "- a\n- b\n")
-    with pytest.raises(ValueError, match="expected a mapping"):
+    with pytest.raises(ValueError, match=rf"^{re.escape(str(bad))}: expected a mapping"):
         load_games(tmp_path)
 
 
@@ -236,7 +236,7 @@ def test_label() -> None:
     assert game().label == "g"
 
 
-def test_value_names() -> None:
+def test_value_names_lists_score_first() -> None:
     assert krillion().value_names() == ["score", "best_round", "worst_round", "round_avg"]
     assert sample_games()["timeguessr"].value_names() == ["score"]
 
@@ -311,3 +311,8 @@ def test_compiled_patterns_follow_field_changes() -> None:
     g2 = g.model_copy(update={"detect": "new"})
     assert g2.detect_re is not None and g2.detect_re.pattern == "new"
     assert g.detect_re.pattern == "old"
+
+
+def test_tokens() -> None:
+    assert sample_games()["timeguessr"].tokens() == ["timeguessr", "tg", "timeguesser", "TimeGuessr"]
+    assert game().tokens() == ["g"]

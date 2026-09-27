@@ -181,3 +181,28 @@ def test_format_error() -> None:
         "I didn't understand `wekly`\nDid you mean: `weekly`, `week`?\nTry `help`."
     )
     assert format_error(CommandError("Two dates")) == "Two dates\nTry `help`."
+
+
+# ── review round 5 ──
+
+
+@pytest.mark.parametrize(
+    ("value", "unit", "expected"),
+    [(4.96, None, "5"), (4321.000000001, None, "4,321"), (-0.04, "±", "+0"), (-0.0, "±", "+0"),
+     (-0.04, None, "0"), (0.96, "days", "1 day")],
+)
+def test_fmt_value_rounds_before_choosing_a_format(value: float, unit: str | None, expected: str) -> None:
+    assert fmt_value(value, unit) == expected
+
+
+def test_games_suffix_only_for_plain_scores() -> None:
+    text = format_board(board_result([("krillion", [s("U1", 5, 1, 12)])], unit="days"), name_for)
+    assert text.endswith("🥇 Alice — 5 days")
+
+
+def test_composition_shows_an_explicit_aggregator_on_other_types(registries: None) -> None:
+    boards = {"imp": make_board(name="imp", type="improvement", window="week", aggregate="avg"),
+              "wins": make_board(name="wins", type="daily_wins", window="month")}
+    text = format_info("boards", GAMES, boards)
+    assert "• `imp`: imp (improvement · week · avg · score)" in text
+    assert "• `wins`: wins (daily_wins · month · score)" in text

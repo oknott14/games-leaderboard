@@ -13,10 +13,10 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Literal
 
-from leaderboard.boards.config import POSITIONAL
+from leaderboard.boards.config import POSITIONAL, BoardConfig, ComponentRef
+from leaderboard.boards.registry import AGGREGATORS, WINDOWS, validate_params
 
 if TYPE_CHECKING:
-    from leaderboard.boards.config import BoardConfig
     from leaderboard.config import GameConfig
 
 ANCHOR_WORDS: frozenset[str] = frozenset({"today", "yesterday", "lastweek", "last_week", "lastmonth", "last_month"})
@@ -55,8 +55,6 @@ def parse_command(
     Either a saved board (`weekly maptap lastweek`) or ad-hoc parts (`maptap avg month`,
     `tg median last_n=10`); see docs/plan/04-commands-formatting.md §5.1.
     """
-    from leaderboard.boards.registry import AGGREGATORS, WINDOWS  # imported lazily: registries fill at startup
-
     tokens = text.lower().split()
     if not tokens:
         return InfoRequest("help")
@@ -115,21 +113,23 @@ def parse_command(
             return unknown(token)
 
     # name=value: `last_n=10` / `top_k_avg=3` name a component (and select it); `k=3` names a
-    # parameter of whichever selected ad-hoc component has it.
+    # parameter of whichever selected ad-hoc component has it. Components first, then bare
+    # parameters, so word order doesn't matter.
     component_params: dict[str, dict[str, object]] = {}
     for name, raw in params:
-        literal = _literal(raw)
         if name in WINDOWS:
             if window not in (None, name):
                 return CommandError(f"Two windows: `{window}` and `{name}`; pick one")
             window = name
-            component_params.setdefault(name, {})[POSITIONAL] = literal
+            component_params.setdefault(name, {})[POSITIONAL] = _literal(raw)
         elif name in AGGREGATORS:
             if aggregate not in (None, name):
                 return CommandError(f"Two aggregators: `{aggregate}` and `{name}`; pick one")
             aggregate = name
-            component_params.setdefault(name, {})[POSITIONAL] = literal
-        else:
+            component_params.setdefault(name, {})[POSITIONAL] = _literal(raw)
+    for name, raw in params:
+        literal = _literal(raw)
+        if name not in WINDOWS and name not in AGGREGATORS:
             owners = [c for c, table in ((window, WINDOWS), (aggregate, AGGREGATORS))
                       if c is not None and table[c].params is not None and name in table[c].params.model_fields]
             if len(owners) != 1:
@@ -158,9 +158,6 @@ def _adhoc_board(
     value: str, window: str, aggregate: str, params: dict[str, dict[str, object]],
     selected: list[str], games: Mapping[str, GameConfig],
 ) -> BoardConfig | CommandError:
-    from leaderboard.boards.config import BoardConfig, ComponentRef
-    from leaderboard.boards.registry import AGGREGATORS, WINDOWS, validate_params
-
     scope = [games[g] for g in selected] or list(games.values())
     if not any(value in g.value_names() for g in scope):
         where = ", ".join(g.label for g in scope)
@@ -171,19 +168,12 @@ def _adhoc_board(
     except ValueError as exc:
         return CommandError(str(exc))
 
-    def describe(name: str) -> str:
-        shown = [f"{v}" if k == POSITIONAL else f"{k}={v}" for k, v in params.get(name, {}).items()]
-        return f"{name} {' '.join(shown)}" if shown else name
-
+    window_ref = ComponentRef(name=window, params=params.get(window, {}))
+    aggregate_ref = ComponentRef(name=aggregate, params=params.get(aggregate, {}))
     parts = ([", ".join(games[g].label for g in selected)] if selected else []) + \
-        ([value] if value != "score" else []) + [describe(aggregate), describe(window)]
-    return BoardConfig(
-        name="adhoc",
-        title=" · ".join(parts),
-        value=value,
-        window=ComponentRef(name=window, params=params.get(window, {})),
-        aggregate=ComponentRef(name=aggregate, params=params.get(aggregate, {})),
-    )
+        ([value] if value != "score" else []) + [aggregate_ref.describe(), window_ref.describe()]
+    return BoardConfig(name="adhoc", title=" · ".join(parts), value=value, window=window_ref,
+                       aggregate=aggregate_ref)
 
 
 def _literal(raw: str) -> object:
@@ -197,12 +187,7 @@ def _literal(raw: str) -> object:
 
 def _game_tokens(games: Mapping[str, GameConfig]) -> dict[str, str]:
     """Every word that names a game (id, alias, one-word display name) → the game's id."""
-    tokens: dict[str, str] = {}
-    for game in games.values():
-        for token in (game.name, *game.aliases, game.display_name or ""):
-            if token:
-                tokens[token.lower()] = game.name
-    return tokens
+    return {token.lower(): game.name for game in games.values() for token in game.tokens()}
 
 
 def resolve_anchor(token: str, today: date) -> date | None:

@@ -36,6 +36,11 @@ class ComponentRef(BaseModel):
     name: str
     params: dict[str, Any] = {}
 
+    def describe(self) -> str:
+        """`avg`, `last_n 5` (shorthand param), `top_k_avg k=3`."""
+        shown = [str(v) if k == POSITIONAL else f"{k}={v}" for k, v in self.params.items()]
+        return " ".join([self.name, *shown])
+
     @model_validator(mode="before")
     @classmethod
     def _shorthand(cls, raw: Any) -> Any:
@@ -174,7 +179,7 @@ def check_token_collisions(boards: Mapping[str, BoardConfig], games: Mapping[str
     for name in AGGREGATORS:
         claim(name, f"aggregator {name!r}")
     for game in games.values():
-        for token in {game.name, *game.aliases, *([game.display_name] if game.display_name else [])}:
+        for token in game.tokens():
             claim(token, f"game {game.name!r}")
     for game in games.values():
         for value in game.value_names():

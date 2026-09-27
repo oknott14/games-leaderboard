@@ -150,3 +150,11 @@ def test_core_types_are_frozen() -> None:
     with pytest.raises(FrozenInstanceError):
         standing.rank = 2  # type: ignore[misc]
     assert WindowResult(DateRange(None, date(2026, 9, 24))).select is None
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [("avg", "avg"), ({"last_n": 5}, "last_n 5"), ({"top_k_avg": {"k": 3}}, "top_k_avg k=3")],
+)
+def test_component_describe(raw: object, expected: str) -> None:
+    assert ComponentRef.model_validate(raw).describe() == expected

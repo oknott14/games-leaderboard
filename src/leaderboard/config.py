@@ -164,6 +164,10 @@ class GameConfig(BaseModel):
     def item_re(self) -> re.Pattern[str] | None:
         return self._pattern(self.rounds.item if self.rounds is not None else None)
 
+    def tokens(self) -> list[str]:
+        """Every word that names this game in commands: its name, aliases and display name."""
+        return [self.name, *self.aliases, *([self.display_name] if self.display_name else [])]
+
     @property
     def label(self) -> str:
         """`display_name`, or `name` when unset."""
@@ -249,8 +253,7 @@ def load_games(directory: Path) -> dict[str, GameConfig]:
         if game.name in games:
             raise ValueError(f"{path}: game {game.name!r} is already defined in {owners[game.name][1]}")
 
-        tokens = {game.name, *game.aliases, *([game.display_name] if game.display_name else [])}
-        for token in sorted(tokens):
+        for token in sorted(set(game.tokens())):
             owner = owners.get(token.lower())
             if owner is not None and owner[0] != game.name:
                 raise ValueError(f"{path}: {token!r} is already used by game {owner[0]!r} ({owner[1]})")

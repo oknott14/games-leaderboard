@@ -47,12 +47,24 @@ def normalize_text(text: str) -> str:
         if target.startswith("#"):
             return f"#{label or target[1:]}"
         if target.startswith("!"):
-            return label or f"@{target[1:].split('^')[0]}"
+            return _special(target[1:], label)
         if label:
             return label
         return target.removeprefix("mailto:")
 
     return _ANGLE.sub(replace, text).replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
+
+
+def _special(target: str, label: str | None) -> str:
+    """`<!here>`/`<!channel>`/`<!everyone>` → `@here`…, `<!subteam^ID|@team>` → `@team` (or
+    `@ID` without a label); other specials (`<!date^…|fallback>`) show their fallback text."""
+    kind, _, rest = target.partition("^")
+    if kind in ("here", "channel", "everyone"):
+        return f"@{kind}"
+    if kind == "subteam":
+        name = label or rest.split("^")[0]
+        return name if name.startswith("@") else f"@{name}"
+    return label or target
 
 
 def to_message(channel_id: str, raw: Mapping[str, Any]) -> ChatMessage | None:

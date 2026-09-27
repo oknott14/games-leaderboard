@@ -7,12 +7,11 @@ from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from typing import TYPE_CHECKING, TypeAlias
 
-from leaderboard.boards.core import DateRange, Standing
-
-from leaderboard.boards.config import POSITIONAL
+from leaderboard.boards.registry import AGGREGATORS, BOARD_TYPES, WINDOWS
 
 if TYPE_CHECKING:
-    from leaderboard.boards.config import BoardConfig, ComponentRef
+    from leaderboard.boards.config import BoardConfig
+    from leaderboard.boards.core import DateRange, Standing
     from leaderboard.boards.engine import BoardResult
     from leaderboard.commands import CommandError
     from leaderboard.config import GameConfig
@@ -21,13 +20,18 @@ NameFor: TypeAlias = Callable[[str, str], str]  # (platform, user_id) → displa
 
 
 def fmt_value(value: float, unit: str | None = None) -> str:
-    """`38532` → `38,532`, `4.25` → `4.3`, unit `±` → `+120`, other units appended (`5 days`)."""
-    number = Decimal(str(value))
-    whole = number == number.to_integral_value()
-    rounded = number if whole else number.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+    """`38532` → `38,532`, `4.25` → `4.3`, unit `±` → `+120`, other units appended (`5 days`).
+
+    Rounds to one decimal (half-up) first, then drops `.0`, so 4.96 and 5.0 both show `5`,
+    float drift never shows, and there's no `-0`.
+    """
+    rounded = Decimal(str(value)).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+    if rounded == 0:
+        rounded = Decimal(0)  # no signed zero
+    whole = rounded == rounded.to_integral_value()
     text = f"{rounded:{'+' if unit == '±' else ''},{'.0f' if whole else '.1f'}}"
     if unit and unit != "±":
-        singular = unit[:-1] if unit.endswith("s") and number == 1 else unit
+        singular = unit[:-1] if unit.endswith("s") and rounded == 1 else unit
         text += f" {singular}"
     return text
 
@@ -79,7 +83,7 @@ def _standing_line(standing: Standing, unit: str | None, name_for: NameFor) -> s
     line = f"{place} {name_for(*standing.player)} — {fmt_value(standing.value, unit)}"
     if standing.detail:
         line += f" · {standing.detail}"
-    elif standing.entries > 1 and unit != "games":
+    elif standing.entries > 1 and unit is None:  # plain scores; unit values (days, wins…) speak for themselves
         line += f" · {standing.entries} games"
     return line
 
@@ -120,8 +124,6 @@ def _format_games(games: Mapping[str, GameConfig]) -> str:
 
 
 def _format_boards(boards: Mapping[str, BoardConfig]) -> str:
-    from leaderboard.boards.registry import AGGREGATORS, BOARD_TYPES, WINDOWS  # filled at startup
-
     lines = ["*Saved boards*"]
     lines += [f"• `{name}`: {board.title or name} ({_composition(board)})" for name, board in boards.items()]
     if not boards:
@@ -135,12 +137,12 @@ def _format_boards(boards: Mapping[str, BoardConfig]) -> str:
 
 
 def _composition(board: BoardConfig) -> str:
-    """`week · sum · score`, `last_n 5 · avg · score`, `daily_wins · month · score`."""
-    def ref(component: ComponentRef) -> str:
-        params = " ".join(str(v) if k == POSITIONAL else f"{k}={v}" for k, v in component.params.items())
-        return f"{component.name} {params}" if params else component.name
-
-    parts = [ref(board.window), ref(board.aggregate), board.value]
-    if board.type.name != "ranked":
-        parts = [ref(board.type), ref(board.window), board.value]
-    return " · ".join(parts)
+    """`week · sum · score`, `last_n 5 · avg · score`, `daily_wins · month · score`,
+    `improvement · week · avg · score` (other types show the aggregator only if it was set)."""
+    if board.type.name == "ranked":
+        parts = [board.window.describe(), board.aggregate.describe()]
+    else:
+        parts = [board.type.describe(), board.window.describe()]
+        if "aggregate" in board.model_fields_set:
+            parts.append(board.aggregate.describe())
+    return " · ".join([*parts, board.value])

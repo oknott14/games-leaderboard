@@ -191,3 +191,12 @@ def test_display_name_api_error_returns_id_and_retries_later(caplog: pytest.LogC
     client.users["U1"] = {"profile": {"display_name": "Ali"}}
     assert slack.display_name("U1") == "Ali"
     assert "Couldn't look up Slack user U1" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [("<!subteam^S1>", "@S1"), ("<!subteam^S1|@team>", "@team"), ("<!subteam^S1|team>", "@team"),
+     ("<!here|here>", "@here"), ("<!everyone>", "@everyone"), ("<!date^1392734382^{date}|Feb 18>", "Feb 18")],
+)
+def test_special_mentions(raw: str, expected: str) -> None:
+    assert normalize_text(raw) == expected
