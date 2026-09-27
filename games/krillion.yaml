@@ -1,0 +1,37 @@
+# games/krillion.yaml
+# Share text, as pasted by the project owner:
+#   Krillion #72 🦐
+#   505
+#
+#   🏮🌟🐟🏮🏮🦑🦑            ← 85+100+30+85+85+60+60 = 505
+# 7 rounds, max 100 per round (700 total), higher is better.
+# Tile values: 🫧 bubbles 10 · 🐟 fish 30 · 🦑 squid 60 · 🏮 lantern 85 · 🌟 star 100
+# Slack's API `text` may carry the emoji as unicode or as :shortcodes:, so both are mapped.
+display_name: Krillion
+aliases: [krill]
+flags: [IGNORECASE, MULTILINE]
+detect: 'Krillion\s+#\d+'
+score:  { pattern: 'Krillion\s+#\d+[^\n]*\n\s*(?P<value>[\d,]+)\s*$' }
+puzzle: { pattern: 'Krillion\s+#(?P<value>\d+)' }
+rounds:
+  block: 'Krillion\s+#\d+[^\n]*\n\s*[\d,]+[ \t]*\n\s*(?P<block>[^\n]+)'   # the first line after the score
+  item: ':(?:bubbles|fish|squid|izakaya_lantern|lantern|star2):|🫧|🐟|🦑|🏮|🌟'
+  map:
+    "🫧": 10
+    ":bubbles:": 10
+    "🐟": 30
+    ":fish:": 30
+    "🦑": 60
+    ":squid:": 60
+    "🏮": 85
+    ":izakaya_lantern:": 85
+    ":lantern:": 85
+    "🌟": 100
+    ":star2:": 100
+  check_sum: true                 # warn if the tiles don't add up to the posted score
+higher_is_better: true
+duplicates: first
+values:
+  best_round:  { from_rounds: max }
+  worst_round: { from_rounds: min }
+  round_avg:   { from_rounds: avg }

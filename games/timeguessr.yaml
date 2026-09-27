@@ -1,0 +1,10 @@
+# games/timeguessr.yaml
+# NOTE: best-guess share format; confirm against real posts (ticket T-107).
+# Share text:  TimeGuessr #512 38,532/50,000   (+ emoji rows per round)
+display_name: TimeGuessr
+aliases: [tg, timeguesser]
+detect: 'TimeGuessr\s+#\d+'
+score:  { pattern: 'TimeGuessr\s+#\d+\s+(?P<value>[\d,]+)\s*/\s*50,000' }
+puzzle: { pattern: 'TimeGuessr\s+#(?P<value>\d+)' }
+higher_is_better: true
+duplicates: first

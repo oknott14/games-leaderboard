@@ -1,0 +1,21 @@
+# games/maptap.yaml
+# NOTE: best-guess share format; confirm against real posts (ticket T-107).
+# Share text (Slack stores emoji as :shortcodes:):
+#   www.maptap.gg September 24
+#   93:trophy: 88:fire: 71 97:trophy: 85
+#   Final score: 862
+display_name: MapTap
+aliases: [map]
+flags: [IGNORECASE]
+detect: 'maptap\.gg'
+score:
+  pattern: 'final score:?\s*(?P<value>[\d,]+)'
+rounds:
+  block: 'maptap\.gg[^\n]*\n(?P<block>[^\n]+)'
+  item: '(\d+)'
+higher_is_better: true
+duplicates: first
+values:
+  best_round:  { from_rounds: max }
+  worst_round: { from_rounds: min }
+  round_avg:   { from_rounds: avg }
