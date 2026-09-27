@@ -6,7 +6,7 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 @dataclass(frozen=True)
@@ -27,4 +27,58 @@ class Settings:
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] = os.environ) -> Settings:
-        raise NotImplementedError  # T-601
+        """Read settings from environment variables (see .env.example).
+
+        Slack values may be empty here: commands that need them call `require`. Invalid values
+        exit with a message naming the variable.
+        """
+
+        def get(name: str, default: str = "") -> str:
+            return (env.get(name) or "").strip() or default
+
+        timezone = get("TIMEZONE", "UTC")
+        try:
+            tz = ZoneInfo(timezone)
+        except (ZoneInfoNotFoundError, ValueError):
+            raise SystemExit(f"Unknown TIMEZONE {timezone!r}; use an IANA name like America/New_York") from None
+
+        backfill = get("BACKFILL_DAYS", "90")
+        if not backfill.isdigit() or int(backfill) < 1:
+            raise SystemExit(f"BACKFILL_DAYS must be a whole number of days >= 1, got {backfill!r}")
+
+        cert = get("SSL_CERT_FILE")
+        return cls(
+            slack_bot_token=get("SLACK_BOT_TOKEN"),
+            slack_app_token=get("SLACK_APP_TOKEN"),
+            channel_ids=frozenset(c.strip() for c in get("SLACK_CHANNEL_IDS").split(",") if c.strip()),
+            timezone=tz,
+            database_url=get("DATABASE_URL", cls.database_url),
+            games_dir=Path(get("GAMES_DIR", str(cls.games_dir))),
+            boards_file=Path(get("BOARDS_FILE", str(cls.boards_file))),
+            plugins_dir=Path(get("PLUGINS_DIR", str(cls.plugins_dir))),
+            backfill_days=int(backfill),
+            store_non_game_messages=_boolean("STORE_NON_GAME_MESSAGES", get("STORE_NON_GAME_MESSAGES", "true")),
+            https_proxy=get("HTTPS_PROXY") or None,
+            ssl_cert_file=Path(cert) if cert else None,
+            log_level=get("LOG_LEVEL", cls.log_level).upper(),
+        )
+
+    def require(self, *names: str) -> None:
+        """Exit with a clear message if any of these environment variables weren't set."""
+        values = {
+            "SLACK_BOT_TOKEN": self.slack_bot_token,
+            "SLACK_APP_TOKEN": self.slack_app_token,
+            "SLACK_CHANNEL_IDS": self.channel_ids,
+        }
+        missing = [name for name in names if not values[name]]
+        if missing:
+            raise SystemExit(f"Missing {', '.join(missing)} (see .env.example)")
+
+
+def _boolean(name: str, raw: str) -> bool:
+    lowered = raw.lower()
+    if lowered in ("1", "true", "yes", "on"):
+        return True
+    if lowered in ("0", "false", "no", "off"):
+        return False
+    raise SystemExit(f"{name} must be true or false, got {raw!r}")

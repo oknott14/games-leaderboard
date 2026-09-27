@@ -25,6 +25,6 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] Defaults, boolean and list parsing, and a bad timezone gives a clear error.
-- [ ] A missing required value names the variable.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] Defaults, boolean and list parsing, and a bad timezone gives a clear error.
+- [x] A missing required value names the variable.
+- [x] `uv run pytest` passes; committed and pushed to `master`
