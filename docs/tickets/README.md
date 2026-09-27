@@ -337,7 +337,7 @@ The single source of truth for who's doing what. Statuses: `Todo` → `In progre
 | [T-402](T-402-parse-saved-boards.md) | Command parsing: saved boards, anchors, games, shortcuts | D | M | T-401 | oknott14 | Done |
 | [T-403](T-403-parse-adhoc.md) | Command parsing: ad-hoc boards, params & suggestions | D | M | T-402, T-321 | oknott14 | Done |
 | [T-404](T-404-value-and-range-format.md) | Value & date-range formatting | D | S | T-006 | oknott14 | Done |
-| [T-405](T-405-format-board.md) | format_board | D | S | T-404 | | Todo |
+| [T-405](T-405-format-board.md) | format_board | D | S | T-404 | oknott14 | Done |
 | [T-406](T-406-format-info-error.md) | format_info (help/games/boards) & format_error | D | S | T-404 | | Todo |
 | [T-501](T-501-slack-normalize.md) | Slack text normalisation & message conversion | E | S | T-006 | | Todo |
 | [T-502](T-502-slack-port-core.md) | SlackPort construction, post & display names | E | S | T-501 | | Todo |

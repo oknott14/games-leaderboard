@@ -26,5 +26,5 @@ Edit only these files. Anything else needs a coordinated change (see [working ru
 
 ## Acceptance criteria
 
-- [ ] Medal ties, truncation, suffixes and the empty message all match §5.2.
-- [ ] `uv run pytest` passes; committed and pushed to `master`
+- [x] Medal ties, truncation, suffixes and the empty message all match §5.2.
+- [x] `uv run pytest` passes; committed and pushed to `master`
